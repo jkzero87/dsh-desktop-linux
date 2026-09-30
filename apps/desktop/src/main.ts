@@ -61,13 +61,6 @@ import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
 
-// Linux window managers match a window to its desktop entry by application id, and Electron derives
-// that id from the packaged package name (`@deepseek-ai/dsh-desktop`), which no shipped entry
-// matches: the window then belongs to no application, so a taskbar pins and groups it separately and
-// falls back to a placeholder icon. The name below must stay equal to the desktop entry the
-// packaging derives from `executableName`, including its `StartupWMClass`.
-if (process.platform === 'linux') app.setDesktopName('deepseek-harness.desktop')
-
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
 let shuttingDown = false

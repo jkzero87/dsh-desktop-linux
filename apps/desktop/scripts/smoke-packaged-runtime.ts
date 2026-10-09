@@ -12,7 +12,6 @@ const { values } = parseArgs({ options: { unsigned: { type: 'boolean', default: 
 const target = resolveDesktopBuildTarget()
 const windows = target === 'win-x64'
 const linux = target === 'linux-x64'
-if (values.unsigned && !windows) throw new Error('desktop smoke: unsigned artifacts require Windows')
 const artifacts = values.unsigned ? paths.unsignedArtifacts : paths.artifacts
 // electron-builder stages every non-macOS target as a platform-named unpacked directory beside its artifacts.
 const application = windows ? join(artifacts, 'win-unpacked')

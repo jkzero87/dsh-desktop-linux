@@ -76,7 +76,10 @@ export class RasterFrameDecoder {
     private readonly onFailure: (error: Error) => void,
   ) {}
 
-  /** Consume one channel chunk. */
+  /**
+   * Consume one channel chunk.
+   * @param chunk - incoming frame bytes.
+   */
   push(chunk: Buffer): void {
     if (this.failed) return
     let offset = 0

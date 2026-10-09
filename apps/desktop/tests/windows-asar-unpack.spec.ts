@@ -1,4 +1,6 @@
-import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { chmod, cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -225,6 +227,22 @@ it.each([false, true])('unpacks platform ripgrep executables with external sourc
     expect(archive.getFile(path, false).unpacked).toBe(true)
     expect(await readFile(join(input.resources, 'app.asar.unpacked', path), 'utf8')).toBe('ripgrep fixture')
   }
+})
+
+it.each([false, true])('loads Sharp dependencies in plain Node after ASAR packaging (external=%s)', async (external) => {
+  const input = await fixture(external)
+  const sharp = join('node_modules', 'sharp', 'index.cjs')
+  await mkdir(dirname(join(input.source, sharp)), { recursive: true })
+  await writeFile(join(input.source, sharp), "console.log(require('semver').valid('1.2.3'))\n")
+  await cp(dirname(require.resolve('semver/package.json')), join(input.source, 'node_modules', 'semver'), { recursive: true })
+  const config = unsignedWindowsConfig('com.example.raster', input.source)
+  input.config.asarUnpack = [...config.asarUnpack]
+  await packageFixture(input)
+  // System-wide modules must not conceal a dependency missing from the packaged tree.
+  const { stdout } = await promisify(execFile)(process.execPath, ['--no-global-search-paths', join(input.resources, 'app.asar.unpacked', 'dsh', sharp)], {
+    env: { ...process.env, NODE_OPTIONS: '' },
+  })
+  expect(stdout.trim()).toBe('1.2.3')
 })
 
 it.each([false, true])('keeps the complete Office engine outside ASAR with external source=%s', async (external) => {

@@ -74,6 +74,7 @@ export function createElectronBuilderConfig(
   const unpack = ['**/*.{node,dylib,dll,so,exe}', '**/*.so.*', '**/spawn-helper', '**/@vscode/ripgrep-*/bin/rg',
     '**/node_modules/sharp/**/*',
     '**/node_modules/detect-libc/**/*',
+    '**/node_modules/semver/**/*',
     '**/node_modules/@img/**/*',
     '**/node_modules/@deepseek-ai/dsh-attachment-local/**/*',
     `**/node_modules/@deepseek-ai/libreoffice-kit-${resolvedPlatform}-${resolvedArch}/**/*`]

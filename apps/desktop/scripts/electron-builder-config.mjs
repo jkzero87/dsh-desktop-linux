@@ -253,6 +253,8 @@ export function createElectronBuilderConfig(
       target: ['nsis'],
     },
     linux: {
+      // Sizes rendered from the inset macOS artwork; hicolor has no 1024 px directory.
+      icon: fileURLToPath(new URL('../resources/linux-icons', import.meta.url)),
       category: 'Development',
       // electron-builder otherwise derives the executable name from the scoped package name.
       executableName: 'deepseek-harness',

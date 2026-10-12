@@ -6,6 +6,7 @@
 #   scripts/install-linux-local.sh [path/to/DeepSeek-Harness.AppImage]
 #   scripts/install-linux-local.sh --uninstall
 #   scripts/install-linux-local.sh --apparmor    (print the sudo commands that install the AppArmor profile)
+#   scripts/install-linux-local.sh --desktop-entry   (rewrite only the desktop entry, e.g. after installing the profile)
 #
 # Writes only these paths (and --uninstall removes exactly these):
 #   ~/Applications/DeepSeek-Harness/   (the extracted application, plus the generated deepseek-harness.apparmor)
@@ -50,6 +51,29 @@ print_apparmor_commands() {
 	echo "To let $APP_ID keep Chromium's sandbox when launched from GNOME, run:"
 	echo "  sudo install -m 644 '$APPARMOR_PROFILE' $APPARMOR_SYSTEM_PROFILE"
 	echo "  sudo apparmor_parser -r $APPARMOR_SYSTEM_PROFILE"
+	echo "  $SCRIPT_DIR/install-linux-local.sh --desktop-entry"
+}
+
+write_desktop_entry() {
+	# With the profile installed, run the binary itself so Chromium keeps its sandbox. Without
+	# it, go through AppRun, which adds --no-sandbox when `unshare -Ur true` fails. AppRun is a
+	# bash script the profile does not cover, so its probe always fails from GNOME: it is only
+	# the fallback.
+	local launcher="$INSTALL_DIR/AppRun"
+	if cmp -s "$APPARMOR_PROFILE" "$APPARMOR_SYSTEM_PROFILE"; then launcher="$EXECUTABLE"; fi
+	cat > "$DESKTOP_FILE" <<EOF
+[Desktop Entry]
+Type=Application
+Name=DeepSeek Harness
+Comment=DeepSeek Harness desktop app
+Exec=env DSH_HOME="$DSH_HOME_DIR" "$launcher" %U
+TryExec=$EXECUTABLE
+Icon=$APP_ID
+Terminal=false
+Categories=Development;
+StartupWMClass=$APP_ID
+EOF
+	chmod 0644 "$DESKTOP_FILE"
 }
 
 if [[ "${1:-}" == "--uninstall" ]]; then
@@ -69,6 +93,15 @@ if [[ "${1:-}" == "--apparmor" ]]; then
 	[[ -x "$EXECUTABLE" ]] || { echo "$APP_ID is not installed; run this script without --apparmor first" >&2; exit 1; }
 	write_apparmor_profile
 	print_apparmor_commands
+	exit 0
+fi
+
+if [[ "${1:-}" == "--desktop-entry" ]]; then
+	[[ -x "$EXECUTABLE" ]] || { echo "$APP_ID is not installed; run this script without --desktop-entry first" >&2; exit 1; }
+	write_apparmor_profile
+	write_desktop_entry
+	refresh_caches
+	echo "wrote $DESKTOP_FILE: $(grep '^Exec=' "$DESKTOP_FILE")"
 	exit 0
 fi
 
@@ -107,20 +140,7 @@ done
 [[ $installed -gt 0 ]] || { echo "the AppImage contains no $APP_ID icons" >&2; exit 1; }
 
 write_apparmor_profile
-
-cat > "$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Type=Application
-Name=DeepSeek Harness
-Comment=DeepSeek Harness desktop app
-Exec=env DSH_HOME="$DSH_HOME_DIR" "$EXECUTABLE" %U
-TryExec=$EXECUTABLE
-Icon=$APP_ID
-Terminal=false
-Categories=Development;
-StartupWMClass=$APP_ID
-EOF
-chmod 0644 "$DESKTOP_FILE"
+write_desktop_entry
 
 refresh_caches
 echo "installed $APP_ID: $INSTALL_DIR ($installed icon sizes), DSH_HOME=$DSH_HOME_DIR"

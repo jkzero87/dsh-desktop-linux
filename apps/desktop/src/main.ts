@@ -1086,6 +1086,10 @@ async function main(): Promise<void> {
       if (quitting || shellInstallerOwnsQuit || sessionEnding) return
       event.preventDefault()
       if (updateDialog.isOpen) { updateDialog.focus(); return }
+      // Hiding needs a way back: the macOS dock or the Windows tray. Linux has neither (and a Windows tray can fail
+      // to start), so a hidden window would be unreachable while the Host keeps running; quit instead, through
+      // before-quit, which still asks when quitting would interrupt running tasks.
+      if (process.platform !== 'darwin' && tray === undefined) { app.quit(); return }
       const hide = (): void => {
         if (!quitting && !shellInstallerOwnsQuit && !sessionEnding && !window.isDestroyed()) hideMainWindow(window)
       }

@@ -31,9 +31,9 @@ APPARMOR_TEMPLATE="$SCRIPT_DIR/../packaging/linux/apparmor/$APP_ID"
 APPARMOR_PROFILE="$INSTALL_DIR/$APP_ID.apparmor"
 APPARMOR_SYSTEM_PROFILE="/etc/apparmor.d/$APP_ID"
 
-# Data directory the app uses. This points at the development home for now;
-# change it to your own data directory (never ~/.dsh, which belongs to the npm dsh).
-DSH_HOME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.desktop-build/development/home"
+# Data directory the app uses, outside the build tree so a clean rebuild cannot wipe it.
+# Override with DSH_HOME_DIR (never ~/.dsh, which belongs to the npm dsh).
+DSH_HOME_DIR="${DSH_HOME_DIR:-$HOME/.local/share/deepseek-harness}"
 
 refresh_caches() {
 	if command -v update-desktop-database >/dev/null; then update-desktop-database "$HOME/.local/share/applications"; fi

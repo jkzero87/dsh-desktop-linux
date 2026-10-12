@@ -5,9 +5,10 @@
 #
 #   scripts/install-linux-local.sh [path/to/DeepSeek-Harness.AppImage]
 #   scripts/install-linux-local.sh --uninstall
+#   scripts/install-linux-local.sh --apparmor    (print the sudo commands that install the AppArmor profile)
 #
 # Writes only these paths (and --uninstall removes exactly these):
-#   ~/Applications/DeepSeek-Harness/   (the extracted application)
+#   ~/Applications/DeepSeek-Harness/   (the extracted application, plus the generated deepseek-harness.apparmor)
 #   ~/.local/share/applications/deepseek-harness.desktop
 #   ~/.local/share/icons/hicolor/<size>/apps/deepseek-harness.png
 set -euo pipefail
@@ -19,6 +20,15 @@ EXECUTABLE="$INSTALL_DIR/$APP_ID"
 DESKTOP_FILE="$HOME/.local/share/applications/$APP_ID.desktop"
 ICON_ROOT="$HOME/.local/share/icons/hicolor"
 ICON_SIZES=(16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512 1024x1024)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Ubuntu 23.10+ blocks unprivileged user namespaces for unconfined processes, which is
+# what everything GNOME launches is, so Chromium falls back to the setuid chrome-sandbox
+# and aborts. This per-app profile (the pattern of Ubuntu's own chrome profile) lifts
+# that for the installed binary only; installing it needs root, so it is only printed.
+APPARMOR_TEMPLATE="$SCRIPT_DIR/../packaging/linux/apparmor/$APP_ID"
+APPARMOR_PROFILE="$INSTALL_DIR/$APP_ID.apparmor"
+APPARMOR_SYSTEM_PROFILE="/etc/apparmor.d/$APP_ID"
 
 # Data directory the app uses. This points at the development home for now;
 # change it to your own data directory (never ~/.dsh, which belongs to the npm dsh).
@@ -29,12 +39,36 @@ refresh_caches() {
 	if command -v gtk-update-icon-cache >/dev/null && [[ -f "$ICON_ROOT/index.theme" ]]; then gtk-update-icon-cache -f -t "$ICON_ROOT"; fi
 }
 
+write_apparmor_profile() {
+	# The path is pasted into a quoted AppArmor attachment, so keep it free of glob and quote characters.
+	[[ "$EXECUTABLE" =~ ^[A-Za-z0-9._/+@\ -]+$ ]] || { echo "cannot write an AppArmor profile for $EXECUTABLE" >&2; exit 1; }
+	sed "s|@EXECUTABLE@|$EXECUTABLE|" "$APPARMOR_TEMPLATE" > "$APPARMOR_PROFILE"
+	chmod 0644 "$APPARMOR_PROFILE"
+}
+
+print_apparmor_commands() {
+	echo "To let $APP_ID keep Chromium's sandbox when launched from GNOME, run:"
+	echo "  sudo install -m 644 '$APPARMOR_PROFILE' $APPARMOR_SYSTEM_PROFILE"
+	echo "  sudo apparmor_parser -r $APPARMOR_SYSTEM_PROFILE"
+}
+
 if [[ "${1:-}" == "--uninstall" ]]; then
 	rm -rf "$INSTALL_DIR"
 	rm -f "$DESKTOP_FILE"
 	for size in "${ICON_SIZES[@]}"; do rm -f "$ICON_ROOT/$size/apps/$APP_ID.png"; done
 	refresh_caches
 	echo "removed $APP_ID"
+	if [[ -f "$APPARMOR_SYSTEM_PROFILE" ]]; then
+		echo "the AppArmor profile is still installed; remove it with:"
+		echo "  sudo apparmor_parser -R $APPARMOR_SYSTEM_PROFILE && sudo rm $APPARMOR_SYSTEM_PROFILE"
+	fi
+	exit 0
+fi
+
+if [[ "${1:-}" == "--apparmor" ]]; then
+	[[ -x "$EXECUTABLE" ]] || { echo "$APP_ID is not installed; run this script without --apparmor first" >&2; exit 1; }
+	write_apparmor_profile
+	print_apparmor_commands
 	exit 0
 fi
 
@@ -72,6 +106,8 @@ for size in "${ICON_SIZES[@]}"; do
 done
 [[ $installed -gt 0 ]] || { echo "the AppImage contains no $APP_ID icons" >&2; exit 1; }
 
+write_apparmor_profile
+
 cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
@@ -88,3 +124,4 @@ chmod 0644 "$DESKTOP_FILE"
 
 refresh_caches
 echo "installed $APP_ID: $INSTALL_DIR ($installed icon sizes), DSH_HOME=$DSH_HOME_DIR"
+cmp -s "$APPARMOR_PROFILE" "$APPARMOR_SYSTEM_PROFILE" || print_apparmor_commands

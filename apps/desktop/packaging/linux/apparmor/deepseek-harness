@@ -1,0 +1,14 @@
+# AppArmor profile for DeepSeek Harness; apps/desktop/scripts/install-linux-local.sh
+# fills in the installed Electron binary below. It allows everything and only exists
+# to let the app create the unprivileged user namespaces Chromium's sandbox needs on
+# Ubuntu 23.10+ (kernel.apparmor_restrict_unprivileged_userns=1), as Ubuntu's own
+# chrome profile does.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile deepseek-harness "@EXECUTABLE@" flags=(unconfined) {
+  userns,
+
+  include if exists <local/deepseek-harness>
+}

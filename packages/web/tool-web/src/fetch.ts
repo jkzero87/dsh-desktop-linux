@@ -267,7 +267,7 @@ function renderBody(body: WebFetchBody, maxInputChars: number): RenderedBody {
  * where it would keep little more than an HTML page's `<head>`. Same value as
  * `DEFAULT_FETCH_MAX_OUTPUT_CHARS`, the bound the source cut had at the default cap.
  */
-const MAX_FETCH_SOURCE_CHARS = 200_000
+export const MAX_FETCH_SOURCE_CHARS = 200_000
 
 /** The truncation notice appended when the provider or the output cap cut content. */
 const TRUNCATION_FOOTER = '\n\n(Content truncated. Fetch a more specific URL or section for the full text.)'
@@ -308,12 +308,13 @@ interface RenderedFetch {
  * @returns the complete `Fetched <url> (HTTP <status>)`-headed text and whether
  *   the provider, a source cut, or the cap trimmed the content.
  */
-function renderFetchOutput(result: WebFetchResult, maxOutputChars: number): RenderedFetch {
-  const byCap = renderCache.get(result) ?? new Map<number, RenderedFetch>()
-  const cached = byCap.get(maxOutputChars)
+function renderFetchOutput(result: WebFetchResult, maxOutputChars: number, maxSourceChars: number): RenderedFetch {
+  const byCap = renderCache.get(result) ?? new Map<string, RenderedFetch>()
+  const key = `${maxOutputChars}/${maxSourceChars}`
+  const cached = byCap.get(key)
   if (cached !== undefined) return cached
-  const computed = computeFetchOutput(result, maxOutputChars)
-  byCap.set(maxOutputChars, computed)
+  const computed = computeFetchOutput(result, maxOutputChars, maxSourceChars)
+  byCap.set(key, computed)
   renderCache.set(result, byCap)
   return computed
 }
@@ -324,7 +325,7 @@ function renderFetchOutput(result: WebFetchResult, maxOutputChars: number): Rend
  * cap (a deployment constant per registration). Collapses the registry's twin
  * `render`/`presentationMeta` calls into one HTML→markdown conversion.
  */
-const renderCache = new WeakMap<WebFetchResult, Map<number, RenderedFetch>>()
+const renderCache = new WeakMap<WebFetchResult, Map<string, RenderedFetch>>()
 
 /**
  * The uncached conversion behind {@link renderFetchOutput}. Separated so the
@@ -334,9 +335,9 @@ const renderCache = new WeakMap<WebFetchResult, Map<number, RenderedFetch>>()
  * @param maxOutputChars - cap on the complete returned string.
  * @returns the bounded text and effective truncation.
  */
-function computeFetchOutput(result: WebFetchResult, maxOutputChars: number): RenderedFetch {
+function computeFetchOutput(result: WebFetchResult, maxOutputChars: number, maxSourceChars: number): RenderedFetch {
   const header = `Fetched ${result.url} (HTTP ${result.statusCode})\n\n${EXTERNAL_WEB_CONTENT_NOTICE}\n\n`
-  const rendered = renderBody(result.body, Math.max(maxOutputChars, MAX_FETCH_SOURCE_CHARS))
+  const rendered = renderBody(result.body, Math.max(maxOutputChars, maxSourceChars))
   const prefix = `${header}${rendered.text}`
   const truncated = result.truncated || rendered.sourceTruncated || prefix.length > maxOutputChars
   const full = `${prefix}${truncated ? TRUNCATION_FOOTER : ''}`
@@ -352,8 +353,12 @@ function computeFetchOutput(result: WebFetchResult, maxOutputChars: number): Ren
  * @param maxOutputChars - cap on the complete returned string.
  * @returns the complete text from {@link renderFetchOutput}.
  */
-export function formatFetchOutput(result: WebFetchResult, maxOutputChars: number): string {
-  return renderFetchOutput(result, maxOutputChars).text
+export function formatFetchOutput(
+  result: WebFetchResult,
+  maxOutputChars: number,
+  maxSourceChars: number = MAX_FETCH_SOURCE_CHARS,
+): string {
+  return renderFetchOutput(result, maxOutputChars, maxSourceChars).text
 }
 
 /**
@@ -398,8 +403,12 @@ export interface WebFetchMeta {
  *   {@link formatFetchOutput} applies to the render text.
  * @returns the URL, status code, and effective truncation flag.
  */
-export function fetchMetaFromValue(value: WebFetchResult, maxOutputChars: number): JsonValue {
-  return { url: value.url, statusCode: value.statusCode, truncated: renderFetchOutput(value, maxOutputChars).truncated }
+export function fetchMetaFromValue(
+  value: WebFetchResult,
+  maxOutputChars: number,
+  maxSourceChars: number = MAX_FETCH_SOURCE_CHARS,
+): JsonValue {
+  return { url: value.url, statusCode: value.statusCode, truncated: renderFetchOutput(value, maxOutputChars, maxSourceChars).truncated }
 }
 
 /**
@@ -453,7 +462,12 @@ export function presentFetchResult(args: { url: string }, result: ToolResult): W
  * @param maxOutputChars - cap on the complete rendered tool output (see
  *   {@link formatFetchOutput}) and on source characters converted synchronously.
  */
-export function applyWebFetchTool(ctx: Context, timeoutMs: number, maxOutputChars: number): void {
+export function applyWebFetchTool(
+  ctx: Context,
+  timeoutMs: number,
+  maxOutputChars: number,
+  maxSourceChars: number = MAX_FETCH_SOURCE_CHARS,
+): void {
   ctx.systemPrompt.section({
     name: 'tool:web_fetch',
     order: ctx.systemPrompt.getSectionOrder('TOOL_WEB_FETCH'),
@@ -499,8 +513,8 @@ export function applyWebFetchTool(ctx: Context, timeoutMs: number, maxOutputChar
           truncated: { type: 'boolean', required: true },
         },
       },
-      render: (_args, value) => [{ type: 'text', text: formatFetchOutput(value, maxOutputChars) }],
-      presentationMeta: (_args, value) => fetchMetaFromValue(value, maxOutputChars),
+      render: (_args, value) => [{ type: 'text', text: formatFetchOutput(value, maxOutputChars, maxSourceChars) }],
+      presentationMeta: (_args, value) => fetchMetaFromValue(value, maxOutputChars, maxSourceChars),
     },
     timeoutMs,
     // Provider reads do not mutate parent-agent state.

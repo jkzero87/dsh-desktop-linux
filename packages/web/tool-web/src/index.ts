@@ -10,7 +10,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-web'
 import { applyWebSearchTool, WEB_SEARCH_MAX_QUERIES, WEB_SEARCH_MAX_RESULTS } from './search.ts'
-import { applyWebFetchTool } from './fetch.ts'
+import { applyWebFetchTool, MAX_FETCH_SOURCE_CHARS } from './fetch.ts'
 
 export { WEB_SEARCH_MAX_QUERIES, WEB_SEARCH_MAX_RESULTS, applyWebSearchTool, formatSearchOutput, presentSearchCall, presentSearchResult, searchMetaFromValue, searchMetaFromResult } from './search.ts'
 export type { WebSearchMeta } from './search.ts'
@@ -47,8 +47,10 @@ export interface Config {
   fetchTimeoutMs?: number
   /** Cooperative timeout budget (ms) for `web_search`. Defaults to 30000. */
   searchTimeoutMs?: number
-  /** Cap on source characters converted and complete `web_fetch` output characters. Defaults to 200000. */
+  /** Cap on the complete `web_fetch` output characters (converted text). Defaults to 200000. */
   fetchMaxOutputChars?: number
+  /** Safety bound on raw body characters converted per fetch (at least fetchMaxOutputChars). Defaults to 200000. */
+  fetchMaxSourceChars?: number
 }
 
 export const Config: z<Config> = z.object({
@@ -59,6 +61,7 @@ export const Config: z<Config> = z.object({
   fetchTimeoutMs: z.number().default(DEFAULT_WEB_TOOL_TIMEOUT_MS),
   searchTimeoutMs: z.number().default(DEFAULT_WEB_TOOL_TIMEOUT_MS),
   fetchMaxOutputChars: z.number().default(DEFAULT_FETCH_MAX_OUTPUT_CHARS),
+  fetchMaxSourceChars: z.number().default(MAX_FETCH_SOURCE_CHARS),
 })
 
 /** Complete config after schemastery applies every field default. */
@@ -88,8 +91,9 @@ export function apply(ctx: Context, config: Config): void {
   assertPositiveInteger('fetchTimeoutMs', resolved.fetchTimeoutMs)
   assertPositiveInteger('searchTimeoutMs', resolved.searchTimeoutMs)
   assertPositiveInteger('fetchMaxOutputChars', resolved.fetchMaxOutputChars)
+  assertPositiveInteger('fetchMaxSourceChars', resolved.fetchMaxSourceChars)
   if (resolved.search) {
     applyWebSearchTool(ctx, resolved.searchMaxResults, resolved.searchMaxQueries, resolved.searchTimeoutMs, resolved.fetch)
   }
-  if (resolved.fetch) applyWebFetchTool(ctx, resolved.fetchTimeoutMs, resolved.fetchMaxOutputChars)
+  if (resolved.fetch) applyWebFetchTool(ctx, resolved.fetchTimeoutMs, resolved.fetchMaxOutputChars, resolved.fetchMaxSourceChars)
 }

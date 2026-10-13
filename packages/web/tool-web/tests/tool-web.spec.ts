@@ -262,6 +262,14 @@ describe('fetch formatting', () => {
     expect(out).not.toContain('Content truncated')
   })
 
+  it('bounds the raw source by maxSourceChars, independent of the output cap', () => {
+    // Content after 250k raw chars (like GitHub pages): cut at the default bound, kept with a larger one.
+    const html = `<html><head><style>${'x{}'.repeat(90_000)}</style></head><body><p>Late body</p></body></html>`
+    const value = { url: 'https://a.test', statusCode: 200, truncated: false, body: { kind: 'html' as const, content: html } }
+    expect(formatFetchOutput(value, 2_000)).not.toContain('Late body')
+    expect(formatFetchOutput(value, 2_000, 400_000)).toContain('Late body')
+  })
+
   it('dispatches text and html bodies', () => {
     expect(formatFetchOutput({
       url: 'https://a.test', statusCode: 200, truncated: false,

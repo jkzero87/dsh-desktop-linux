@@ -1,0 +1,56 @@
+# Build the unsigned Linux x64 desktop AppImage when a v* tag is pushed. This
+# workflow only packages the app and retains the artifact: it publishes nothing,
+# performs no upload to a release feed, and never appears as a pull-request check.
+name: Release (linux desktop)
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  # One build per tag; re-running a tag displaces its earlier attempt.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRIMARY_NODE_VERSION: '24'
+  DSH_TELEMETRY_DISABLED: '1'
+
+jobs:
+  package:
+    name: Build unsigned linux-x64 AppImage
+    runs-on: ubuntu-latest
+    steps:
+      # Complete history: the packaging reads the checkout's commit.
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          clean: true
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      # package:linux:x64 prepares the runtime and packs the unsigned AppImage
+      # into the target's unsigned-artifacts directory.
+      - name: Build unsigned linux-x64 AppImage
+        run: pnpm --filter @deepseek-ai/dsh-desktop run package:linux:x64
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: linux-x64-unsigned-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/*.AppImage
+          if-no-files-found: error
+          retention-days: 14

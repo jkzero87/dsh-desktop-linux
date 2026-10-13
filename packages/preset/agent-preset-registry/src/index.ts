@@ -60,6 +60,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
   private readonly definitions = new Map<string, Definition>()
   private readonly generations = new Map<ScopeKey, Generation>()
   private readonly bindings = new WeakMap<ScopeKey, Binding>()
+  private readonly toolFilters = new WeakMap<ScopeKey, () => void>()
   private readonly switches = new Map<string, Promise<unknown>>()
 
   constructor(ctx: Context, public config: Config) {
@@ -261,16 +262,39 @@ export class AgentPresetRegistry extends TypertRemoteService {
       old.users--
       await this.collect(old)
     } else this.join(ctx, key, generation)
+    await this.applyToolFilter(ctx, key, generation)
+  }
+
+  /** Lift the previous preset's tool filter for this Agent scope and apply the bound preset's, if any.
+   * Runs after the loader settles so preset tools that register late (services still resolving) are known;
+   * filter names absent for this Agent are ignored with a warning instead of failing the bind.
+   */
+  private async applyToolFilter(ctx: Context, key: ScopeKey, generation: Generation): Promise<void> {
+    this.toolFilters.get(key)?.()
+    this.toolFilters.delete(key)
+    const filter = generation.toolFilter
+    if (filter === undefined || (filter.allow === undefined && filter.deny === undefined)) return
+    await this.owner.loader.await()
+    if (this.bindings.get(key)?.generation !== generation) return
+    const present = (name: string) => ctx.tools.get(name, key) !== undefined
+    const missing = [...filter.allow ?? [], ...filter.deny ?? []].filter(name => !present(name))
+    if (missing.length > 0) {
+      this.owner.logger.warn(`agent preset ${generation.mount.presetId}: toolFilter names not present for this agent, ignored: ${missing.join(', ')}`)
+    }
+    const deny = filter.deny?.filter(present) ?? []
+    const restriction = {
+      ...filter.allow === undefined ? {} : { allow: filter.allow.filter(present) },
+      ...deny.length === 0 ? {} : { deny },
+    }
+    if (restriction.allow === undefined && restriction.deny === undefined) return
+    const dispose = ctx.effect(() => ctx.tools.restrict(restriction), 'agent-preset.tool-filter')
+    this.toolFilters.set(key, dispose)
   }
 
   private join(ctx: Context, key: ScopeKey, generation: Generation): void {
     const binding = { parent: bindScopeParent(key, generation.key), generation }
     generation.users++
     this.bindings.set(key, binding)
-    const filter = generation.toolFilter
-    if (filter !== undefined && (filter.allow !== undefined || filter.deny !== undefined)) {
-      ctx.effect(() => ctx.tools.restrict(filter), 'agent-preset.tool-filter')
-    }
     ctx.effect(() => async () => {
       this.bindings.delete(key)
       binding.generation.users--

@@ -49,6 +49,22 @@ describe('declarative preset revisions', () => {
     const research = await agentOn(ctx, 'research', 'research')
     expect(ctx.tools.schemas(plain).map(row => row.name).sort()).toEqual(['host_a', 'host_b', 'standard'])
     expect(ctx.tools.schemas(research).map(row => row.name).sort()).toEqual(['host_a', 'research'])
+    // Selecting the preset on an Agent first bound to another one (the UI path) applies it too.
+    const switched = await agentOn(ctx, 'switched')
+    await ctx.agentPresets.select(switched, 'research')
+    expect(ctx.tools.schemas(switched).map(row => row.name).sort()).toEqual(['host_a', 'research'])
+  })
+
+  it('ignores toolFilter names that are not present instead of failing the bind', async () => {
+    const ctx = await setup()
+    ctx.tools.register({
+      name: 'host_a', description: 'host_a', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      output: { schema: { type: 'string' }, render: () => [] }, execute: () => Promise.resolve('host_a'),
+    })
+    await declare(ctx, contribution('standard'))
+    await declare(ctx, { ...contribution('research'), toolFilter: { allow: ['research', 'missing_tool'] } })
+    const agent = await agentOn(ctx, 'agent', 'research')
+    expect(ctx.tools.schemas(agent).map(row => row.name).sort()).toEqual(['research'])
   })
 
   it('retains a replaced revision for existing scopes and their children, then releases it', async () => {

@@ -250,6 +250,18 @@ describe('fetch formatting', () => {
     expect(tiny).toBe('Fetched ht')
   })
 
+  it('applies the cap to the converted text, not to the raw html', () => {
+    // A long <head> before the body: cutting the source at the cap would leave only the title.
+    const head = `<head><title>T</title><style>${'x{}'.repeat(5_000)}</style></head>`
+    const out = formatFetchOutput({
+      url: 'https://a.test', statusCode: 200, truncated: false,
+      body: { kind: 'html', content: `<html>${head}<body><p>Body text</p></body></html>` },
+    }, 2_000)
+    expect(out.length).toBeLessThanOrEqual(2_000)
+    expect(out).toContain('Body text')
+    expect(out).not.toContain('Content truncated')
+  })
+
   it('dispatches text and html bodies', () => {
     expect(formatFetchOutput({
       url: 'https://a.test', statusCode: 200, truncated: false,
@@ -346,9 +358,10 @@ describe('fetch formatting', () => {
     try {
       const out = formatFetchOutput({
         url: 'https://a.test', statusCode: 200, truncated: false,
-        body: { kind: 'html', content: `<p>${'x'.repeat(10_000)}</p>` },
+        body: { kind: 'html', content: `<p>${'x'.repeat(250_000)}</p>` },
       }, 500)
-      expect(spy).toHaveBeenCalledWith(`<p>${'x'.repeat(497)}`)
+      // The source bound is independent of the (smaller) output cap.
+      expect(spy).toHaveBeenCalledWith(`<p>${'x'.repeat(199_997)}`)
       expect(out.length).toBeLessThanOrEqual(500)
       expect(out).toContain('Content truncated')
     } finally {

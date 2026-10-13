@@ -261,6 +261,14 @@ function renderBody(body: WebFetchBody, maxInputChars: number): RenderedBody {
   }
 }
 
+/**
+ * Safety bound on the raw body (HTML or text) processed synchronously, independent of
+ * `fetchMaxOutputChars`: a small output cap must not cut the source before conversion,
+ * where it would keep little more than an HTML page's `<head>`. Same value as
+ * `DEFAULT_FETCH_MAX_OUTPUT_CHARS`, the bound the source cut had at the default cap.
+ */
+const MAX_FETCH_SOURCE_CHARS = 200_000
+
 /** The truncation notice appended when the provider or the output cap cut content. */
 const TRUNCATION_FOOTER = '\n\n(Content truncated. Fetch a more specific URL or section for the full text.)'
 
@@ -280,9 +288,10 @@ interface RenderedFetch {
 /**
  * Render a fetch result to its bounded model-facing text and effective
  * truncation. The single source of both the `render` text and the fetch card's
- * `truncated`, so the card never disagrees with the text the model saw. The cap
- * limits the source prefix processed synchronously, then applies again where the
- * complete output — header, rendered body, and footer — is known.
+ * `truncated`, so the card never disagrees with the text the model saw. The source
+ * prefix processed synchronously is bounded by {@link MAX_FETCH_SOURCE_CHARS} (or the
+ * cap, if larger); the cap applies to the complete output — header, rendered body,
+ * and footer — once it is known.
  *
  * Package-internal: the only callers are {@link formatFetchOutput} and
  * {@link fetchMetaFromValue}, both reached through the tool registry, which
@@ -327,7 +336,7 @@ const renderCache = new WeakMap<WebFetchResult, Map<number, RenderedFetch>>()
  */
 function computeFetchOutput(result: WebFetchResult, maxOutputChars: number): RenderedFetch {
   const header = `Fetched ${result.url} (HTTP ${result.statusCode})\n\n${EXTERNAL_WEB_CONTENT_NOTICE}\n\n`
-  const rendered = renderBody(result.body, maxOutputChars)
+  const rendered = renderBody(result.body, Math.max(maxOutputChars, MAX_FETCH_SOURCE_CHARS))
   const prefix = `${header}${rendered.text}`
   const truncated = result.truncated || rendered.sourceTruncated || prefix.length > maxOutputChars
   const full = `${prefix}${truncated ? TRUNCATION_FOOTER : ''}`

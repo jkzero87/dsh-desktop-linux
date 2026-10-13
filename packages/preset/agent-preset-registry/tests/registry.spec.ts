@@ -35,6 +35,22 @@ describe('declarative preset revisions', () => {
     expect(ctx.agentPresets.inspectCompositions()).toHaveLength(2)
   })
 
+  it('applies a preset toolFilter to bound Agents only', async () => {
+    const ctx = await setup()
+    for (const name of ['host_a', 'host_b']) {
+      ctx.tools.register({
+        name, description: name, parameters: { type: 'object', properties: {}, additionalProperties: false },
+        output: { schema: { type: 'string' }, render: () => [] }, execute: () => Promise.resolve(name),
+      })
+    }
+    await declare(ctx, contribution('standard'))
+    await declare(ctx, { ...contribution('research'), toolFilter: { allow: ['research', 'host_a'] } })
+    const plain = await agentOn(ctx, 'plain')
+    const research = await agentOn(ctx, 'research', 'research')
+    expect(ctx.tools.schemas(plain).map(row => row.name).sort()).toEqual(['host_a', 'host_b', 'standard'])
+    expect(ctx.tools.schemas(research).map(row => row.name).sort()).toEqual(['host_a', 'research'])
+  })
+
   it('retains a replaced revision for existing scopes and their children, then releases it', async () => {
     const ctx = await setup()
     const old = await declare(ctx, contribution('standard'))

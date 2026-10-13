@@ -34,6 +34,7 @@ interface Generation {
   mount: PresetMount
   users: number
   retired: boolean
+  toolFilter?: PresetDefinition['toolFilter']
 }
 interface Definition {
   config: PresetDefinition
@@ -108,7 +109,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
       if (problem !== undefined) throw new Error(problem)
       const context = scope.ctx.extend({ baseUrl: record.context.baseUrl })
       const mount = await mountPreset(context, record.config.id, record.config.plugins)
-      const generation: Generation = { scope, key, mount, users: 0, retired: false }
+      const generation: Generation = { scope, key, mount, users: 0, retired: false, toolFilter: record.config.toolFilter }
       context.effect(() => {
         this.generations.set(key, generation)
         return () => { this.generations.delete(key) }
@@ -266,6 +267,10 @@ export class AgentPresetRegistry extends TypertRemoteService {
     const binding = { parent: bindScopeParent(key, generation.key), generation }
     generation.users++
     this.bindings.set(key, binding)
+    const filter = generation.toolFilter
+    if (filter !== undefined && (filter.allow !== undefined || filter.deny !== undefined)) {
+      ctx.effect(() => ctx.tools.restrict(filter), 'agent-preset.tool-filter')
+    }
     ctx.effect(() => async () => {
       this.bindings.delete(key)
       binding.generation.users--

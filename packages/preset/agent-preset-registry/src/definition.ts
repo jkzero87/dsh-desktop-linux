@@ -8,6 +8,11 @@ export interface PresetDefinition {
   readonly description?: string
   readonly order?: number
   readonly plugins: readonly (Omit<EntryOptions, 'id' | 'disabled'> & { id?: string; disabled?: EntryOptions['disabled'] | JsExpr })[]
+  /**
+   * Optional tool visibility for Agents bound to this preset, applied with `tools.restrict()` on each
+   * Agent's own scope at bind time: `allow` keeps only the named tools, `deny` removes them.
+   */
+  readonly toolFilter?: { readonly allow?: readonly string[]; readonly deny?: readonly string[] }
 }
 
 /** Validate a parsed Cordis entry list, including nested groups.

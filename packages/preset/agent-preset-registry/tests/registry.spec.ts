@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createScope } from '@deepseek-ai/dsh-scope'
 import { assembleContextFor } from '@deepseek-ai/dsh-agent'
 import { entryListProblem } from '../src/index.ts'
@@ -62,9 +62,14 @@ describe('declarative preset revisions', () => {
       output: { schema: { type: 'string' }, render: () => [] }, execute: () => Promise.resolve('host_a'),
     })
     await declare(ctx, contribution('standard'))
-    await declare(ctx, { ...contribution('research'), toolFilter: { allow: ['research', 'missing_tool'] } })
+    await declare(ctx, { ...contribution('research'), toolFilter: { allow: ['research', 'missing_tool'], deny: ['also_missing'] } })
+    const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => ctx.logger)
     const agent = await agentOn(ctx, 'agent', 'research')
     expect(ctx.tools.schemas(agent).map(row => row.name).sort()).toEqual(['research'])
+    // A config mistake stays visible: one warning naming the preset and every skipped tool.
+    const messages = warn.mock.calls.map(call => String(call[0])).filter(text => text.includes('toolFilter'))
+    expect(messages).toEqual(['agent preset research: toolFilter names not present for this agent, ignored: missing_tool, also_missing'])
+    warn.mockRestore()
   })
 
   it('retains a replaced revision for existing scopes and their children, then releases it', async () => {

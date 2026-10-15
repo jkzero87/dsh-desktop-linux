@@ -351,6 +351,7 @@ function computeFetchOutput(result: WebFetchResult, maxOutputChars: number, maxS
  *
  * @param result - the seam's fetch outcome.
  * @param maxOutputChars - cap on the complete returned string.
+ * @param maxSourceChars - cap on the raw source characters converted before the output cap applies.
  * @returns the complete text from {@link renderFetchOutput}.
  */
 export function formatFetchOutput(
@@ -401,6 +402,7 @@ export interface WebFetchMeta {
  * @param value - the canonical `web_fetch` output value (the seam's result shape).
  * @param maxOutputChars - the deployment's output cap, the same one
  *   {@link formatFetchOutput} applies to the render text.
+ * @param maxSourceChars - the deployment's raw source bound, the same one {@link formatFetchOutput} applies.
  * @returns the URL, status code, and effective truncation flag.
  */
 export function fetchMetaFromValue(
@@ -460,7 +462,8 @@ export function presentFetchResult(args: { url: string }, result: ToolResult): W
  * @param timeoutMs - the cooperative tool-call budget (ms) attached as the tool's
  *   `ToolDefinition.timeoutMs` for `@deepseek-ai/dsh-tool-call-timeout-policy` to enforce.
  * @param maxOutputChars - cap on the complete rendered tool output (see
- *   {@link formatFetchOutput}) and on source characters converted synchronously.
+ *   {@link formatFetchOutput}).
+ * @param maxSourceChars - cap on the raw source characters converted synchronously (`fetchMaxSourceChars`).
  */
 export function applyWebFetchTool(
   ctx: Context,

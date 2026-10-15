@@ -1,13 +1,14 @@
 /** Select local test defaults or platform release settings without changing the caller's environment. */
 
 import { accessSync, constants, readFileSync, statSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseEnv } from 'node:util'
 import { resolveDesktopAppId, resolveMacOSNotarizationEnvironment, resolveMacOSSigningEnvironment, resolveNpmRegistry } from './desktop-release-environment.mjs'
 import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
 import { createWindowsTokenSigner } from './windows-sign.mjs'
 import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
+import { validateMacOSSignatureCacheDirectory } from './macos-signature-cache-directory.mjs'
 import { resolveMacOSPackageSettings } from './macos-package-settings.mjs'
 import { resolveWindowsSignatureCacheDirectory } from './windows-signature-cache-directory.mjs'
 import { resolveWindowsPackageSettings } from './windows-package-settings.mjs'
@@ -15,13 +16,20 @@ import { resolveWindowsPackageSettings } from './windows-package-settings.mjs'
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SHARED_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_TEST_RELEASE_ID|DOWNLOAD_(?:TEST|PROD)_(?:ORIGIN|COS_BUCKET|COS_SECRET_ID|COS_SECRET_KEY))$/u
 const WINDOWS_SETTING = /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN|SIGNATURE_CACHE_DIR|SIGNATURE_CACHE_CONCURRENCY)$/u
-const MACOS_SETTING = /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
+const MACOS_SETTING = /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID|SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
 // Linux packaging needs no platform-specific release setting: it neither signs nor notarizes.
 const LINUX_SETTING = /^$/u
 // Mandatory updates are a macOS and Windows capability, so a Linux package must not carry their
 // settings: they would be recorded nowhere and only suggest an enforcement that cannot happen.
 const PLATFORM_FORBIDDEN = { win32: /^$/u, darwin: /^$/u, linux: /^DSH_DESKTOP_MANDATORY_UPDATE_/u }
 const PLATFORM_SETTINGS = { win32: WINDOWS_SETTING, darwin: MACOS_SETTING, linux: LINUX_SETTING }
+// A shared preset carries the platform settings that are not credentials; the platform's own file
+// declares the rest beside the platform template.
+const PLATFORM_PUBLIC_SETTINGS = {
+  win32: /^DSH_DESKTOP_WINDOWS_SIGNATURE_CACHE_(?:DIR|CONCURRENCY)$/u,
+  darwin: /^DSH_DESKTOP_MACOS_(?:SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)$/u,
+  linux: /^$/u,
+}
 const PLATFORM_ENV_FILES = { win32: '.env.windows', darwin: '.env.macos', linux: '.env.linux' }
 const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
 const FILE_SETTINGS = ['DSH_DESKTOP_WINDOWS_CER_FILE', 'DSH_DESKTOP_WINDOWS_SIGNTOOL', 'APPLE_API_KEY', 'APPLE_KEYCHAIN', 'CSC_LINK']
@@ -40,14 +48,62 @@ export function localMacOSPackageEnvironment(environment = process.env) {
 }
 
 /**
- * Read the target's required UTF-8 dotenv file; release settings never fall back to ambient values.
+ * Read a machine preset when selected, otherwise the target's required dotenv; no ambient release fallback.
+ * PACKAGE_TEST_RELEASE_ID overrides the test preset only; blank retains its configured ID.
  * @param {'win32' | 'darwin' | 'linux'} platform Target platform.
  * @param {NodeJS.ProcessEnv} environment Parent environment, retained only for unrelated build tools.
  * @param {string} appRoot Desktop application directory; relative credential paths resolve here.
+ * @param {{ unsigned?: boolean, prepareOnly?: boolean }} options Unsigned presets and Windows preparation-only presets never read signing credentials.
  * @returns {NodeJS.ProcessEnv} Isolated environment with file-owned release settings.
  */
-export function loadDesktopPackageEnvironment(platform, environment = process.env, appRoot = APP_ROOT) {
-  const path = join(appRoot, PLATFORM_ENV_FILES[platform])
+export function loadDesktopPackageEnvironment(platform, environment = process.env, appRoot = APP_ROOT, options = {}) {
+  const preset = environment.DSH_PACKAGING_PRESET
+  let path = join(appRoot, PLATFORM_ENV_FILES[platform])
+  if (preset !== undefined) {
+    if (preset !== 'test' && preset !== 'production') throw new Error('desktop package: preset must be test or production')
+    const root = environment.DSH_PACKAGING_CONFIG_DIR
+    if (!root || !isAbsolute(root)) throw new Error('desktop package: DSH_PACKAGING_CONFIG_DIR must be an absolute directory')
+    path = join(root, 'presets', `${preset}.env`)
+  }
+  const platformSetting = PLATFORM_SETTINGS[platform]
+  const publicPlatformSetting = PLATFORM_PUBLIC_SETTINGS[platform]
+  const settings = readSettings(path, name => preset === undefined
+    ? SHARED_SETTING.test(name) || platformSetting.test(name)
+    : /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_TEST_(?:ORIGIN|RELEASE_ID))$/u.test(name) || publicPlatformSetting.test(name),
+  PLATFORM_FORBIDDEN[platform])
+  if (preset !== undefined) {
+    if (settings.DSH_DESKTOP_AUTO_UPDATE_ENV !== preset) throw new Error('desktop package: preset deployment must match its name')
+    // Linux packages carry no signing material, so a preset never reads a secrets file for them.
+    if (!options.unsigned && platform !== 'linux' && (platform === 'darwin' || !options.prepareOnly)) {
+      const filename = platform === 'win32' ? 'windows-signing.env' : 'macos-signing.env'
+      Object.assign(settings, readSettings(join(dirname(dirname(path)), 'secrets', filename),
+        name => platform === 'win32'
+          ? /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN)$/u.test(name)
+          : MACOS_SETTING.test(name) && !publicPlatformSetting.test(name)))
+    }
+  }
+  const releaseId = environment.PACKAGE_TEST_RELEASE_ID?.trim()
+  if (releaseId) {
+    if (preset !== 'test') throw new Error('desktop package: test release ID override requires the test preset')
+    if (!/^[a-f0-9]{32}$/u.test(releaseId)) throw new Error('desktop package: test release ID must contain 32 lowercase hexadecimal characters')
+    settings.DOWNLOAD_TEST_RELEASE_ID = releaseId
+  }
+  return {
+    ...Object.fromEntries(Object.entries(environment).filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name))),
+    ...settings,
+    ...(environment.DSH_DESKTOP_UPDATE_CHANNEL === undefined ? {} : { DSH_DESKTOP_UPDATE_CHANNEL: environment.DSH_DESKTOP_UPDATE_CHANNEL }),
+    ...(preset === undefined ? {} : { DSH_PACKAGING_PRESET: preset }),
+  }
+}
+
+/**
+ * Read an explicitly selected dotenv without exposing credential-bearing parser errors.
+ * @param {string} path Selected file; relative file settings resolve beside it.
+ * @param {(name: string) => boolean} accepts Whether this file may declare a setting.
+ * @param {RegExp} [forbidden] Settings the platform must not carry, rejected with their own reason.
+ * @returns {NodeJS.ProcessEnv} Validated file settings.
+ */
+function readSettings(path, accepts, forbidden) {
   let contents
   try {
     contents = readFileSync(path, 'utf8')
@@ -63,12 +119,11 @@ export function loadDesktopPackageEnvironment(platform, environment = process.en
     // Parser diagnostics can contain credential-bearing input.
     throw new Error(`desktop package: invalid dotenv syntax in ${path}`)
   }
-  const platformSetting = PLATFORM_SETTINGS[platform]
   for (const name of Object.keys(settings)) {
-    if (PLATFORM_FORBIDDEN[platform].test(name)) {
+    if (forbidden !== undefined && forbidden.test(name)) {
       throw new Error(`desktop package: unsupported setting ${name} in ${path}; mandatory updates apply to macOS and Windows packages`)
     }
-    if (!SHARED_SETTING.test(name) && !platformSetting.test(name)) {
+    if (!accepts(name)) {
       throw new Error(`desktop package: unsupported setting ${name} in ${path}; use the platform template`)
     }
     if (settings[name].includes('\0')) throw new Error(`desktop package: ${name} cannot contain a NUL character`)
@@ -76,10 +131,7 @@ export function loadDesktopPackageEnvironment(platform, environment = process.en
   for (const name of FILE_SETTINGS) {
     if (settings[name]?.trim()) settings[name] = resolve(dirname(path), settings[name].trim())
   }
-  return {
-    ...Object.fromEntries(Object.entries(environment).filter(([name]) => !AMBIENT_RELEASE_SETTING.test(name))),
-    ...settings,
-  }
+  return settings
 }
 
 function requireReadableFile(environment, name) {
@@ -93,10 +145,10 @@ function requireReadableFile(environment, name) {
 }
 
 /**
- * Validate release configuration and packaging mode before preparation without invoking a token or Apple's services.
+ * Validate the packaging mode before preparation without invoking a token or Apple's services.
  * @param {NodeJS.ProcessEnv} environment Selected local defaults or file-owned release settings.
  * @param {{ platform: 'win32' | 'darwin' | 'linux', arch: string }} target Selected release target.
- * @param {{ unsigned?: boolean, prepareOnly?: boolean }} options Explicit packaging mode.
+ * @param {{ unsigned?: boolean, prepareOnly?: boolean, skipNotarization?: boolean }} options Explicit packaging mode.
  * @returns {void}
  */
 export function validateDesktopPackageEnvironment(environment, target, options = {}) {
@@ -116,18 +168,21 @@ export function validateDesktopPackageEnvironment(environment, target, options =
     })
     if (!options.prepareOnly) resolveWindowsSignatureCacheDirectory(environment)
   } else if (target.platform === 'darwin') {
+    if (environment.DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR !== undefined) validateMacOSSignatureCacheDirectory(environment.DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR)
     resolveMacOSSigningEnvironment(environment)
-    const strategies = [
-      ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'],
-      ['APPLE_API_KEY', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER'],
-      ['APPLE_KEYCHAIN_PROFILE', 'APPLE_KEYCHAIN'],
-    ]
-    if (strategies.filter(names => names.some(name => environment[name] !== undefined)).length > 1) {
-      throw new Error('desktop package: configure exactly one macOS notarization strategy; comment out the other strategies')
+    if (!options.skipNotarization) {
+      const strategies = [
+        ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'],
+        ['APPLE_API_KEY', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER'],
+        ['APPLE_KEYCHAIN_PROFILE', 'APPLE_KEYCHAIN'],
+      ]
+      if (strategies.filter(names => names.some(name => environment[name] !== undefined)).length > 1) {
+        throw new Error('desktop package: configure exactly one macOS notarization strategy; comment out the other strategies')
+      }
+      const credentials = resolveMacOSNotarizationEnvironment(environment)
+      if ('appleApiKey' in credentials) requireReadableFile(environment, 'APPLE_API_KEY')
+      if ('keychain' in credentials) requireReadableFile(environment, 'APPLE_KEYCHAIN')
     }
-    const credentials = resolveMacOSNotarizationEnvironment(environment)
-    if ('appleApiKey' in credentials) requireReadableFile(environment, 'APPLE_API_KEY')
-    if ('keychain' in credentials) requireReadableFile(environment, 'APPLE_KEYCHAIN')
     requireReadableFile(environment, 'CSC_LINK')
     if (environment.CSC_KEY_PASSWORD === undefined) {
       throw new Error('desktop package: CSC_KEY_PASSWORD must be set to the p12 export password (use an explicit empty value for an unencrypted p12)')

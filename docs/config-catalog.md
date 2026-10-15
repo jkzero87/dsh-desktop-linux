@@ -4171,8 +4171,10 @@ export interface Config {
   fetchTimeoutMs?: number
   /** Cooperative timeout budget (ms) for `web_search`. Defaults to 30000. */
   searchTimeoutMs?: number
-  /** Cap on source characters converted and complete `web_fetch` output characters. Defaults to 200000. */
+  /** Cap on the complete `web_fetch` output characters (converted text). Defaults to 200000. */
   fetchMaxOutputChars?: number
+  /** Safety bound on raw body characters converted per fetch (at least fetchMaxOutputChars). Defaults to 200000. */
+  fetchMaxSourceChars?: number
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-tool-web -->

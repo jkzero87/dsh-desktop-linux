@@ -20,7 +20,11 @@ export default class AgentPreset {
     order: z.number(),
     // Cordis owns individual plugin schemas; the registry validates entry structure.
     plugins: z.array(z.any()).required(),
-    toolFilter: z.object({ allow: z.array(z.string()), deny: z.array(z.string()) }),
+    // Preserve omission; Schemastery's `{ allow: [], deny: [] }` default would hide every tool.
+    toolFilter: z.object({
+      allow: z.array(z.string()).default(undefined as never),
+      deny: z.array(z.string()).default(undefined as never),
+    }).default(undefined as never),
   }) as z<Config>
 
   constructor(private readonly ctx: Context, private readonly config: Config) {}

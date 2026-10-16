@@ -273,7 +273,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
     this.toolFilters.get(key)?.()
     this.toolFilters.delete(key)
     const filter = generation.toolFilter
-    if (filter === undefined || (filter.allow === undefined && filter.deny === undefined)) return
+    if (filter === undefined || ((filter.allow?.length ?? 0) === 0 && (filter.deny?.length ?? 0) === 0)) return
     await this.owner.loader.await()
     if (this.bindings.get(key)?.generation !== generation) return
     const present = (name: string) => ctx.tools.get(name, key) !== undefined

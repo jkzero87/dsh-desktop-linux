@@ -55,6 +55,21 @@ describe('declarative preset revisions', () => {
     expect(ctx.tools.schemas(switched).map(row => row.name).sort()).toEqual(['host_a', 'research'])
   })
 
+  it('restricts nothing for a preset without toolFilter or with empty allow and deny lists', async () => {
+    const ctx = await setup()
+    ctx.tools.register({
+      name: 'host_a', description: 'host_a', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      output: { schema: { type: 'string' }, render: () => [] }, execute: () => Promise.resolve('host_a'),
+    })
+    await declare(ctx, contribution('standard'))
+    await declare(ctx, contribution('unfiltered'))
+    await declare(ctx, { ...contribution('empty'), toolFilter: { allow: [], deny: [] } })
+    const unfiltered = await agentOn(ctx, 'unfiltered', 'unfiltered')
+    const empty = await agentOn(ctx, 'empty', 'empty')
+    expect(ctx.tools.schemas(unfiltered).map(row => row.name).sort()).toEqual(['host_a', 'unfiltered'])
+    expect(ctx.tools.schemas(empty).map(row => row.name).sort()).toEqual(['empty', 'host_a'])
+  })
+
   it('ignores toolFilter names that are not present instead of failing the bind', async () => {
     const ctx = await setup()
     ctx.tools.register({

@@ -11,6 +11,7 @@ export interface PresetDefinition {
   /**
    * Optional tool visibility for Agents bound to this preset, applied with `tools.restrict()` on each
    * Agent's own scope at bind time: `allow` keeps only the named tools, `deny` removes them.
+   * An absent filter, or one whose `allow` and `deny` are both absent or empty, restricts nothing.
    */
   readonly toolFilter?: { readonly allow?: readonly string[]; readonly deny?: readonly string[] }
 }

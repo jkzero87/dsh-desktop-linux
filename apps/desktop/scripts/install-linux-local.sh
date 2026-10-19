@@ -61,12 +61,14 @@ write_desktop_entry() {
 	# the fallback.
 	local launcher="$INSTALL_DIR/AppRun"
 	if cmp -s "$APPARMOR_PROFILE" "$APPARMOR_SYSTEM_PROFILE"; then launcher="$EXECUTABLE"; fi
+	# DSH_* names are accepted only from the launching environment, never from DSH_HOME/.env. Product analytics
+	# exports to a closed local port even if re-enabled in config; DSH_TELEMETRY_DISABLED drops the session telemetry row.
 	cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=DeepSeek Harness
 Comment=DeepSeek Harness desktop app
-Exec=env DSH_HOME="$DSH_HOME_DIR" "$launcher" %U
+Exec=env DSH_HOME="$DSH_HOME_DIR" DSH_PRODUCT_ANALYTICS_OTLP_URL=http://127.0.0.1:9/v1/logs DSH_TELEMETRY_DISABLED=1 "$launcher" %U
 TryExec=$EXECUTABLE
 Icon=$APP_ID
 Terminal=false

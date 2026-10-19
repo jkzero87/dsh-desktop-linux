@@ -8,6 +8,31 @@ DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的�
 
 文档：[https://deepseek-harness.github.io/deepseek-harness/](https://deepseek-harness.github.io/deepseek-harness/)
 
+## 与上游的差异
+
+本仓库是 DeepSeek Harness 桌面应用的非官方 Linux x86_64 构建，与 DeepSeek 无隶属关系，也未获其认可。AppImage 未签名。macOS 与 Windows 的行为不变。构建、安装与卸载步骤见 [README-LINUX.md](README-LINUX.md)。
+
+Linux 补丁集来自 [mtaech/dsh-linux-patch](https://github.com/mtaech/dsh-linux-patch)（MIT），标签 `v0.2.1-rc.2-linux.1`，基于上游 `dsh-v0.2.1-rc.2`：AppImage 目标、在纯 Node 中处理粘贴图片的栅格 worker（Sharp 的 libvips 在 Linux 的 Electron 内会崩溃）、Office kit 解析到解包文件、Linux 窗口身份与图标，以及 Linux 包不写入强制更新策略。
+
+本仓库新增：
+
+- **关闭即退出：** 在没有托盘的 Linux 上，关闭主窗口会经过正常的退出确认后退出，而不是隐藏窗口且无法找回。
+- **AppArmor：** Ubuntu 23.10+ 会为从 GNOME 启动的应用阻止非特权用户命名空间，导致 Chromium 中止。安装脚本生成按应用的配置并打印 `sudo` 命令；在配置安装之前，桌面条目通过 `AppRun` 启动，它会回退到 `--no-sandbox`。
+- **按用户安装：** `apps/desktop/scripts/install-linux-local.sh` 解包 AppImage（无需 FUSE），写入桌面条目与多尺寸图标，并把应用数据保存在 `~/.local/share/deepseek-harness`。
+- **tool-web：** `fetchMaxOutputChars` 限制转换后的页面文本而不是原始 HTML，原始输入的上限由 `fetchMaxSourceChars` 设置。
+- **Agent 预设：** 可选的 `toolFilter`（`allow` / `deny`）限制绑定到预设的 Agent 可用的工具。
+- **默认关闭遥测：** 桌面产品分析（`enabled: false`）与会话遥测（`DISABLED`）不会向 `dsh-otel-collector.deepseeksvc.com` 发送任何内容。桌面条目还把 `DSH_PRODUCT_ANALYTICS_OTLP_URL` 指向一个关闭的本地端口，并设置 `DSH_TELEMETRY_DISABLED=1`。README-LINUX.md 列出两者在上游默认会发送什么以及如何开启。
+- **CI：** `.github/workflows/release-linux.yml` 在 `v*` 标签上构建未签名的 AppImage，并将其保留为 workflow 制品。
+
+2026-10-19 在 Ubuntu（GNOME，Wayland）上测得，应用从 Dock 启动，使用本地模型：
+
+| 检查项 | 之前的移植（`dsh-v0.2.1-alpha.2`） | 本构建 |
+|---|---|---|
+| Host 接收一张粘贴的 3840×2160 JPEG（5.6 MB） | 1,110 ms | 602–693 ms |
+| 接收后的图片 | 2730×1536 JPEG，397,430 字节 | 相同 |
+| 使用 `web_fetch` 的标准会话提供的工具数 | 22 | 22 |
+| 使用 2 分钟内到 `dsh-otel-collector.deepseeksvc.com` 的连接（`ss`，约 0.15 s 采样） | 未测量 | 0 |
+
 ## 开发者预览
 
 DeepSeek Harness 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**

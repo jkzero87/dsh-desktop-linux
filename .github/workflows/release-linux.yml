@@ -43,10 +43,22 @@ jobs:
       - name: Install (immutable)
         run: pnpm install --frozen-lockfile
 
-      # package:linux:x64 prepares the runtime and packs the unsigned AppImage
-      # into the target's unsigned-artifacts directory.
+      # Packaging reads the git-ignored apps/desktop/.env.linux. This is the minimal
+      # file from README-LINUX.md and carries no secrets.
+      - name: Create apps/desktop/.env.linux
+        run: |
+          cat > apps/desktop/.env.linux <<'EOF'
+          DSH_DESKTOP_APP_ID=com.deepseek.harness
+          DSH_DESKTOP_AUTO_UPDATE_ENV=test
+          DOWNLOAD_TEST_ORIGIN=
+          DOWNLOAD_TEST_RELEASE_ID=
+          EOF
+
+      # --unsigned packs the AppImage with no signing and no update feed into the
+      # target's unsigned-artifacts directory.
       - name: Build unsigned linux-x64 AppImage
-        run: pnpm --filter @deepseek-ai/dsh-desktop run package:linux:x64
+        working-directory: apps/desktop
+        run: pnpm exec tsx scripts/package-target.ts linux-x64 --unsigned
 
       - uses: actions/upload-artifact@v7.0.1
         with:

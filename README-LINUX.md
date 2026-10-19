@@ -15,17 +15,40 @@ Requisitos del host de compilación:
 - **Linux x64**: `package-target.ts` rechaza `linux-x64` si el host no es
   Linux x64.
 
+El empaquetado lee `apps/desktop/.env.linux`, que está en `.gitignore` y no
+viene en el clon; sin él falla con `cannot read …/apps/desktop/.env.linux`.
+Créalo una vez con este contenido mínimo (no lleva secretos; Linux no firma
+nada):
+
+```sh
+cat > apps/desktop/.env.linux <<'EOF'
+DSH_DESKTOP_APP_ID=com.deepseek.harness
+DSH_DESKTOP_AUTO_UPDATE_ENV=test
+DOWNLOAD_TEST_ORIGIN=
+DOWNLOAD_TEST_RELEASE_ID=
+EOF
+```
+
+La plantilla completa, con los campos opcionales, es
+`apps/desktop/.env.linux.example`.
+
 ```sh
 git clone https://github.com/deepseek-ai/deepseek-harness.git
 cd deepseek-harness
 pnpm install
+# crear apps/desktop/.env.linux (arriba)
 cd apps/desktop
-pnpm run package:linux:x64
+pnpm exec tsx scripts/package-target.ts linux-x64 --unsigned
 ```
 
-`package:linux:x64` (en `apps/desktop/package.json`) ejecuta
-`tsx scripts/package-target.ts linux-x64 --unsigned`; Linux solo admite
-compilaciones sin firma. La secuencia completa corre sola: `pnpm run
+Se compila con `--unsigned` a propósito: sin esa opción
+`electron-builder-config.mjs` resuelve un feed de actualización
+(`resolveDesktopAutoUpdateConfig`) y lo graba en el paquete, y el despliegue `test` exige
+`DOWNLOAD_TEST_ORIGIN` (https) y un `DOWNLOAD_TEST_RELEASE_ID` de 32
+caracteres hexadecimales. Con `--unsigned` el paquete sale
+con `publish: null`: sin feed de actualización ni firma. El script
+`package:linux:x64` de `apps/desktop/package.json` no pasa `--unsigned`. La
+secuencia completa corre sola: `pnpm run
 build:official`, los empaquetados `release:pack` (familias `dsh` y `vendor`),
 el empaquetado de `native/system`, `prepare:runtime`, `prepare:packages`,
 `prepare:dsh`, y luego electron-builder con `--config

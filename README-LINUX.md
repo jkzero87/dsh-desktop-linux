@@ -4,6 +4,8 @@ Guía para compilar el AppImage de Linux de la app de escritorio, instalarlo por
 usuario, instalar el perfil de AppArmor y desinstalar. Todas las rutas, flags y
 scripts de este documento existen en este repositorio.
 
+El set de parches Linux (target AppImage, worker de raster, resolución del kit de Office, identidad de ventana, sin política de actualización obligatoria) viene de [mtaech/dsh-linux-patch](https://github.com/mtaech/dsh-linux-patch) (MIT); este port aplica encima sus propios commits. La licencia es el `LICENSE` del repositorio, sin cambios.
+
 ## Compilar el AppImage
 
 Requisitos del host de compilación:

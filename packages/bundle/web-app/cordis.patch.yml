@@ -67,7 +67,8 @@
       name: '@deepseek-ai/dsh-client-product-analytics'
       disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"
       config:
-        enabled: true
+        # This port ships Desktop product analytics off; README-LINUX.md says what it sends and how to enable it.
+        enabled: false
         appVersion: !!js process.env.DSH_CLIENT_VERSION
 
     # Host-owned opt-in sampled when a new Web session receives its preset

@@ -74,6 +74,20 @@ Si solo quieres validar la herramienta y la configuración sin compilar, desde
 pnpm run check:package -- linux-x64 --unsigned
 ```
 
+## Telemetría de producto
+
+De fábrica, la app de escritorio reporta interacciones de producto: la fila `product-analytics` de `packages/bundle/web-app/cordis.patch.yml` viene con `enabled: true` y no tiene control en la interfaz. El Host exporta por OTLP cada 30 s a `https://dsh-otel-collector.deepseeksvc.com/v1/logs` (fila `desktop-product-telemetry`). Cada evento lleva su nombre y atributos (`send_button_click` con `session_id`, `model_name` y nivel de razonamiento, `model_switch`, `plugin_install_click` con el texto escrito, entre otros) más `device_id`, `user_id` si hay sesión iniciada, `app_version` y datos de sistema operativo y CPU. Con un modelo local, `model_name` es la ruta del archivo del modelo, que incluye tu directorio personal. Según `packages/client/product-analytics/README.md` no se envían prompts, respuestas ni claves.
+
+En este port la fila viene con `enabled: false`: no se registran ni se envían eventos. Para prenderla, agrega al patch del perfil de escritorio (`<DSH_HOME>/profiles/desktop/cordis.patch.yml`), con la app cerrada:
+
+```yaml
+- id: product-analytics
+  config:
+    enabled: true
+```
+
+`DSH_PRODUCT_ANALYTICS_OTLP_URL` cambia el destino del exportador. Es un nombre `DSH_*`, así que solo lo acepta el entorno que lanza la app (por ejemplo la línea `Exec` del `.desktop`), no `<DSH_HOME>/.env`. La telemetría de sesión (`session-telemetry-otel`, modo `FEEDBACK_ONLY`) es aparte y se apaga lanzando con `DSH_TELEMETRY_DISABLED=1`.
+
 ## Instalar por usuario
 
 ```sh

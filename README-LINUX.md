@@ -86,7 +86,13 @@ En este port la fila viene con `enabled: false`: no se registran ni se envían e
     enabled: true
 ```
 
-`DSH_PRODUCT_ANALYTICS_OTLP_URL` cambia el destino del exportador. Es un nombre `DSH_*`, así que solo lo acepta el entorno que lanza la app (por ejemplo la línea `Exec` del `.desktop`), no `<DSH_HOME>/.env`. La telemetría de sesión (`session-telemetry-otel`, modo `FEEDBACK_ONLY`) es aparte y se apaga lanzando con `DSH_TELEMETRY_DISABLED=1`.
+`DSH_PRODUCT_ANALYTICS_OTLP_URL` cambia el destino del exportador. Es un nombre `DSH_*`, así que solo lo acepta el entorno que lanza la app (por ejemplo la línea `Exec` del `.desktop`), no `<DSH_HOME>/.env`.
+
+## Telemetría de sesión
+
+De fábrica, la fila `session-telemetry-otel` de `packages/bundle/base/cordis.patch.yml` usa el modo `FEEDBACK_ONLY`: cuando das feedback explícito sobre una sesión (calificación, texto de feedback, nota o su retiro), sube por OTLP a `https://dsh-otel-collector.deepseeksvc.com/v1/logs` el prefijo de registros de esa sesión que aún no se había enviado, con su contexto (mensajes, respuestas y resultados de tools), junto con el identificador anónimo de `<DSH_HOME>/.anonymous-user-id`. Sin feedback no sube nada. Vale para la app de escritorio y para el CLI.
+
+En este port el modo por defecto es `DISABLED`: no se construye el exportador y el feedback queda solo en local. Para volver al comportamiento de fábrica, lanza la app con `DSH_TELEMETRY_MODE=FEEDBACK_ONLY` en su entorno (por ejemplo en la línea `Exec` del `.desktop`). `DSH_TELEMETRY_DISABLED` con cualquier valor no vacío desactiva la fila por completo; `scripts/install-linux-local.sh` lo escribe en el `.desktop` junto con `DSH_PRODUCT_ANALYTICS_OTLP_URL=http://127.0.0.1:9/v1/logs`.
 
 ## Instalar por usuario
 

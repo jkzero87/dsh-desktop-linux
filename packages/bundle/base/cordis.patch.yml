@@ -218,7 +218,8 @@
     - id: session-telemetry-otel
       name: '@deepseek-ai/dsh-session-telemetry-otel'
       config:
-        mode: !!js process.env.DSH_TELEMETRY_MODE || 'FEEDBACK_ONLY'
+        # This port defaults to DISABLED (no upload on feedback); README-LINUX.md says what FEEDBACK_ONLY sends.
+        mode: !!js process.env.DSH_TELEMETRY_MODE || 'DISABLED'
         shutdownTimeoutMillis: 3000
         maxRequestBytes: 4000000
         exporter:

@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { authenticateWebHost, forwardWebRequest, serveWebDocument } from '../src/web-document.ts'
+import { authenticateWebHost, forwardWebRequest, pruneHostCookies, serveWebDocument } from '../src/web-document.ts'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -85,4 +85,14 @@ it('refuses another page origin without forwarding its request', async () => {
   const response = await forwardWebRequest(new Request('dsh-app://app/api/read', { headers: { origin: 'https://other.example' } }), 'http://127.0.0.1:1234/', 'session=owned')
   expect(response.status).toBe(403)
   expect(fetch).not.toHaveBeenCalled()
+})
+
+it('removes every Host browser-session cookie left by earlier launches and keeps unrelated cookies', async () => {
+  const url = 'http://127.0.0.1:36487/?token=owned'
+  const stored = [{ name: 'dsh-auth-earlierPortA' }, { name: 'dsh-auth-earlierPortB' }, { name: 'unrelated' }]
+  const remove = vi.fn(() => Promise.resolve())
+  const get = vi.fn(() => Promise.resolve(stored))
+  expect(await pruneHostCookies({ get, remove }, url)).toBe(2)
+  expect(get).toHaveBeenCalledWith({ url })
+  expect(remove.mock.calls).toEqual([[url, 'dsh-auth-earlierPortA'], [url, 'dsh-auth-earlierPortB']])
 })

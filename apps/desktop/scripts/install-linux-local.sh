@@ -147,3 +147,7 @@ write_desktop_entry
 refresh_caches
 echo "installed $APP_ID: $INSTALL_DIR ($installed icon sizes), DSH_HOME=$DSH_HOME_DIR"
 cmp -s "$APPARMOR_PROFILE" "$APPARMOR_SYSTEM_PROFILE" || print_apparmor_commands
+
+# The new runtime version can drop profile plugins whose compatibility exemption names only older versions;
+# the app itself shows nothing when that happens, so the install fails here instead.
+DSH_HOME_DIR="$DSH_HOME_DIR" "$SCRIPT_DIR/smoke-linux-profile.sh"

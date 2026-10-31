@@ -125,6 +125,8 @@ El directorio de datos de la app (`DSH_HOME`) se fija por defecto en
 variable de entorno `DSH_HOME_DIR` (nunca `~/.dsh`, que pertenece al paquete npm
 `dsh`).
 
+Al terminar, el script corre `apps/desktop/scripts/smoke-linux-profile.sh`, que arranca sin ventana el Host de la app instalada con el perfil `desktop` de ese `DSH_HOME` y falla (código 1) si algún bundle de `dsh.profile.bundles` del `package.json` del perfil se saltó o si faltan las herramientas `advanced_search`, `free_search_test` o `recall` (lista cambiable con `DSH_SMOKE_REQUIRED_TOOLS`). La app no muestra nada cuando salta un bundle: el Host escribe el aviso en stderr y la app solo lo guarda para el informe de fallos. Lo normal es que un bundle se salte al subir de versión: sus requisitos de dsh no cubren la versión nueva y la exención de `<DSH_HOME>/profiles/desktop/compatibility.json` solo nombra versiones anteriores. En ese caso el mensaje indica qué versión exacta hay que añadir y a qué `paquete@versión`. El smoke necesita la app cerrada y se puede repetir solo con `apps/desktop/scripts/smoke-linux-profile.sh`.
+
 ## Instalar el perfil de AppArmor
 
 Desde Ubuntu 23.10+ los procesos sin confinar no pueden crear namespaces de

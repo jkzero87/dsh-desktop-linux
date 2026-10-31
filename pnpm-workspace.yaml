@@ -16,6 +16,13 @@ packages:
 
 overrides:
   'extract-zip>yauzl': '3.4.0'
+  # Linux port security patch inside the declared range (Dependabot): fflate <0.8.3.
+  fflate: '0.8.3'
+  # Held at rc.5's 44.7.0: node-addon-require-builtin@0.1.9 rejects 44.9.x's runtime fingerprint, so the
+  # eMudhra fix (CVE-2026-115570, 44.9.1) waits for an addon release or an upstream Electron bump.
+  electron: '44.7.0'
+  # Overrides dsh-v0.2.1-rc.5's exact undici 8.11.2 pin (Dependabot: content-encoding DoS, fixed in 8.12.2); undici 6/7 untouched.
+  'undici@>=8.0.0 <9.0.0': '8.12.2'
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
 

@@ -22,4 +22,9 @@ export const DESKTOP_RUNTIME_PATCHES: Readonly<Record<string, DesktopRuntimePatc
 export const DESKTOP_RUNTIME_DEPENDENCY_OVERRIDES: Readonly<Record<string, string>> = {
   // The provider declares ^1.1.0; its patch is qualified against 1.1.0.
   '@earendil-works/pi-ai@^1.1.0': '1.1.0',
+  // Linux port security patches; the root pnpm-workspace.yaml overrides do not reach this temporary project.
+  // fflate 0.8.2 has the Dependabot alert fixed in 0.8.3.
+  fflate: '0.8.3',
+  // http-proxy and web-fetch-http pin undici 8.11.2 exactly (content-encoding DoS, fixed in 8.12.2); 6.x and 7.x untouched.
+  'undici@>=8.0.0 <9.0.0': '8.12.2',
 }

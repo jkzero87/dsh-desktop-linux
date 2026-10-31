@@ -45,6 +45,11 @@ jobs:
       - name: Install (immutable)
         run: pnpm install --frozen-lockfile
 
+      # A dependency lock change that leaves THIRD_PARTY_NOTICES.md behind fails the pull request.
+      - name: Verify third-party notices
+        if: github.event_name == 'pull_request'
+        run: pnpm run verify-third-party-notices
+
       # Packaging reads the git-ignored apps/desktop/.env.linux. This is the minimal
       # file from README-LINUX.md and carries no secrets.
       - name: Create apps/desktop/.env.linux

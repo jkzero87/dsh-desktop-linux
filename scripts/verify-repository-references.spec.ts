@@ -153,6 +153,17 @@ describe('maintained repository reference policy', () => {
     expect(scanRepositoryReferences(fixture.root)).toEqual([{ file: 'unique.md', line: 1, kind: 'commit-hash' }])
   })
 
+  it('accepts commit-like values in dependency lockfiles but still rejects the organization URL there', (test) => {
+    const fixture = repository(test)
+    fixture.write('python/sdk/uv.lock', `size = ${fixture.commit.slice(0, 7)}\n${organizationUrl}`)
+    fixture.write('pnpm-lock.yaml', fixture.commit)
+    fixture.write('uv.lock.md', fixture.commit)
+    expect(scanRepositoryReferences(fixture.root)).toEqual([
+      { file: 'python/sdk/uv.lock', line: 2, kind: 'organization-url' },
+      { file: 'uv.lock.md', line: 1, kind: 'commit-hash' },
+    ])
+  })
+
   it('accepts hexadecimal branch names that do not match the referenced commit identifier', (test) => {
     const fixture = repository(test)
     const branch = 'b'.repeat(12)

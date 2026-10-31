@@ -1,11 +1,13 @@
-# Build the unsigned Linux x64 desktop AppImage when a v* tag is pushed. This
-# workflow only packages the app and retains the artifact: it publishes nothing,
-# performs no upload to a release feed, and never appears as a pull-request check.
+# Build the unsigned Linux x64 desktop AppImage when a v* tag is pushed or a pull
+# request targets main. This workflow only packages the app and retains the
+# artifact: it publishes nothing and performs no upload to a release feed.
 name: Release (linux desktop)
 
 on:
   push:
     tags: ['v*']
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -62,7 +64,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7.0.1
         with:
-          name: linux-x64-unsigned-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # A pull request's ref_name (<number>/merge) contains a slash, which artifact names reject.
+          name: linux-x64-unsigned-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: apps/desktop/.desktop-build/targets/linux-x64/unsigned-artifacts/*.AppImage
           if-no-files-found: error
           retention-days: 14

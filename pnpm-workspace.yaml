@@ -19,6 +19,8 @@ overrides:
   # Linux port security patches inside the declared ranges (Dependabot): electron <44.9.1, fflate <0.8.3.
   electron: '44.9.1'
   fflate: '0.8.3'
+  # Overrides dsh-v0.2.1-rc.5's exact undici 8.11.2 pin (Dependabot: content-encoding DoS, fixed in 8.12.2); undici 6/7 untouched.
+  'undici@>=8.0.0 <9.0.0': '8.12.2'
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
 

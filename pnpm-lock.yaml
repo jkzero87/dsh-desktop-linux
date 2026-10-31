@@ -6,8 +6,8 @@ settings:
 
 overrides:
   extract-zip>yauzl: 3.4.0
-  electron: 44.9.1
   fflate: 0.8.3
+  electron: 44.7.0
   undici@>=8.0.0 <9.0.0: 8.12.2
   '@deepseek-ai/cosmokit': link:vendor/cosmokit
   '@deepseek-ai/schemastery': link:vendor/schemastery
@@ -740,8 +740,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       electron:
-        specifier: 44.9.1
-        version: 44.9.1(supports-color@9.4.0)
+        specifier: 44.7.0
+        version: 44.7.0(supports-color@9.4.0)
       electron-builder:
         specifier: ^26.17.0
         version: 26.17.0(electron-builder-squirrel-windows@26.17.0)(supports-color@9.4.0)
@@ -20468,8 +20468,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@44.9.1:
-    resolution: {integrity: sha512-x/tECFFDa2OFNjMObFH0EGKWrCnFZPOR1wP2iMIVt0STecGl8FmDXdaiaryY0kf8mtw9kSLP2yK8dfdaWkfDmw==}
+  electron@44.7.0:
+    resolution: {integrity: sha512-aUq9/zLAAFYc+a9gy6cd0C3Y/N/RmovLCD8TV8LhIzNhuND6HEgsu96jJz9cbAxvckSPv+Trf2PKEjktoZgFkw==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -27876,7 +27876,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@44.9.1(supports-color@9.4.0):
+  electron@44.7.0(supports-color@9.4.0):
     dependencies:
       '@electron-internal/extract-zip': 1.0.5
       '@electron/get': 5.1.0(supports-color@9.4.0)

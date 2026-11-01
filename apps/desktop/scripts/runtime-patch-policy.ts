@@ -27,4 +27,6 @@ export const DESKTOP_RUNTIME_DEPENDENCY_OVERRIDES: Readonly<Record<string, strin
   fflate: '0.8.3',
   // http-proxy and web-fetch-http pin undici 8.11.2 exactly (content-encoding DoS, fixed in 8.12.2); 6.x and 7.x untouched.
   'undici@>=8.0.0 <9.0.0': '8.12.2',
+  // rc.5 pins zod 4.4.3 exactly (memory exhaustion on oversized constrained collections, fixed in 4.6.6).
+  zod: '4.6.7',
 }

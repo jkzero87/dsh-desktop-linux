@@ -18,6 +18,11 @@
 - El read con ~ falla en rc.5 (fs-local resuelve "~/..." relativo al cwd: ~/dsh-scratch/~/...); lo arregla 0.2.2-alpha.2 (expansión de ~ en herramientas de archivo, upstream PR #6550, «fix(fs-local): expand a leading ~ to the home directory» + «fix(fs-local): expand ~ only in requested paths»).
 - Nota 0.2.2-alpha.2: NO subir todavía; pide Node >=24.9 y migra a tools.resolve/tools.mode, lo que choca con el fix de toolFilter.
 
+## ACTUALIZACIONES DE SEGURIDAD linux-port.2 (2026-10-31)
+- Pillow 12.3.0 -> 13.0.0 en el Python del runtime (scripts/primary-runtime/lock.json, ruedas y sha256 de PyPI), dompurify 3.4.17 (override raíz; va empaquetado en el preview) y zod 4.6.7 (override raíz y DESKTOP_RUNTIME_DEPENDENCY_OVERRIDES; los pins exactos de los package.json no se tocan).
+- python/sdk/uv.lock no se tocó: su Pillow==12.3.0 es solo del grupo test y el SDK declara Python >=3.10, que Pillow 13 no soporta; cerrar esas alertas exige subir requires-python del SDK (cambio visible, para upstream).
+- EDITADOS A MANO: scripts/snapshots/python-sdk-single-exe/authoring/model-visible.json y authoring/win-x64/model-visible.json (solo "Pillow": "12.3.0" -> "13.0.0"). No se pudieron regenerar con `smoke-python-runtime.py --scenario sdk-authoring --update-snapshots`: el build local del ejecutable (`build-exe-for-python-sdk.ts --skip-build --targets=node24-linux-x64`) falla en el sidecar de Office con "runtime npm lock: missing SHA-512 integrity for tslib@2.9.1" (`pnpm deploy --legacy` resuelve tslib 2.9.1, que no está en pnpm-lock.yaml) y sin ese paso falta el runtime download manifest; la variante win-x64 solo se construye en Windows. Regenerarlos con el escenario cuando el build del SDK funcione.
+
 ## PARCHE A+B 2026-10-31 — fflate 0.8.3 + undici 8.12.2 (Electron se queda en 44.7.0)
 - A = «deps: override electron to 44.9.1 and fflate to 0.8.3 for the Linux port» (overrides raíz: electron 44.9.1 y fflate 0.8.3).
 - B = «deps: override undici 8 to 8.12.2 for the Linux port» (override raíz undici 8 a 8.12.2; rc.5 fija 8.11.2 exacto en http-proxy y web-fetch-http).

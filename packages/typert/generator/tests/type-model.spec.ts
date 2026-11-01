@@ -1709,6 +1709,8 @@ describe('FaceModelEmitter', { timeout: 60_000 }, () => {
       '',
     ].join('\n'))
     writeFileSync(sourceStubPath, [
+      // zod 4.6 declarations return the WHATWG URL global, which Node and DOM consumers provide.
+      'declare class URL { constructor(input: string) }',
       'declare module \'@fixture/host\' {',
       '  export interface Payload { name: string; count?: number }',
       '}',

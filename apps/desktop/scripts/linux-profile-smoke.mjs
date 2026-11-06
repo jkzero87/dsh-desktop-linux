@@ -4,9 +4,16 @@
 //
 // Run under the installed executable with ELECTRON_RUN_AS_NODE=1 and DSH_HOME set:
 //   linux-profile-smoke.mjs <runtimeDir> <profileDir> <requiredTool,...>
+// An empty tool list requires the tools of the known plugins that the profile's package.json lists.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
+/** Tools each known third-party plugin registers; a profile without the plugin does not require them. */
+const PLUGIN_TOOLS = {
+  'dsh-free-search': ['advanced_search', 'free_search_test'],
+  'dsh-recall': ['recall'],
+}
 
 const [runtimeDir, profileDir, requiredList] = process.argv.slice(2)
 if (runtimeDir === undefined || profileDir === undefined || requiredList === undefined) {
@@ -54,12 +61,16 @@ const application = await runProfile({
   args: ['--no-open', '--host', '127.0.0.1', '--port', '0'],
 })
 const tools = application.ctx.get('tools')
-const missing = requiredList.split(',').filter(name => name !== '' && tools.get(name) === undefined)
+const listedBundles = JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8')).dsh?.profile?.bundles ?? []
+const required = requiredList !== ''
+  ? requiredList.split(',').filter(name => name !== '')
+  : listedBundles.flatMap(bundle => PLUGIN_TOOLS[bundle] ?? [])
+const missing = required.filter(name => tools.get(name) === undefined)
 if (missing.length > 0) failures.push(`required tools are not registered: ${missing.join(', ')}`)
 
 if (failures.length === 0) {
   process.stdout.write(`linux profile smoke: DSH ${runtimeVersion}, ${profile.layers.length} bundles loaded, `
-    + `tools present: ${requiredList}\n`)
+    + `tools present: ${required.join(',') || 'none required'}\n`)
 } else {
   process.stderr.write(`linux profile smoke FAILED (DSH ${runtimeVersion}, profile ${profileDir}):\n`
     + failures.map(failure => `  - ${failure}\n`).join(''))

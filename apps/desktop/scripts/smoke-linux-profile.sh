@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Boot the installed Linux app's Desktop profile headless and fail when a bundle listed in the profile's
-# package.json was skipped (e.g. for compatibility) or a required tool is missing. Needs the app closed,
+# package.json was skipped (e.g. for compatibility) or a required tool is missing. A home with no profile yet
+# has nothing to check: the app creates the profile on first launch. Needs the app closed,
 # because the smoke Host would share the app's DSH_HOME. Like every app start, it rewrites the profile's
 # generated cordis.yml.
 #
 #   scripts/smoke-linux-profile.sh
 #
 # Environment: DSH_HOME_DIR (default ~/.local/share/deepseek-harness), DSH_SMOKE_REQUIRED_TOOLS
-# (comma-separated, default advanced_search,free_search_test,recall).
+# (comma-separated; default: the tools of the known plugins the profile lists).
 set -euo pipefail
 
 INSTALL_DIR="$HOME/Applications/DeepSeek-Harness"
@@ -15,11 +16,14 @@ EXECUTABLE="$INSTALL_DIR/deepseek-harness"
 RUNTIME_DIR="$INSTALL_DIR/resources/app.asar/dsh"
 DSH_HOME_DIR="${DSH_HOME_DIR:-$HOME/.local/share/deepseek-harness}"
 PROFILE_DIR="$DSH_HOME_DIR/profiles/desktop"
-REQUIRED_TOOLS="${DSH_SMOKE_REQUIRED_TOOLS:-advanced_search,free_search_test,recall}"
+REQUIRED_TOOLS="${DSH_SMOKE_REQUIRED_TOOLS:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 [[ -x "$EXECUTABLE" ]] || { echo "smoke-linux-profile: $EXECUTABLE is not installed" >&2; exit 1; }
-[[ -f "$PROFILE_DIR/package.json" ]] || { echo "smoke-linux-profile: no Desktop profile at $PROFILE_DIR" >&2; exit 1; }
+if [[ ! -f "$PROFILE_DIR/package.json" ]]; then
+	echo "smoke-linux-profile: no Desktop profile at $PROFILE_DIR yet; the app creates it on first launch, nothing to check"
+	exit 0
+fi
 if pgrep -f -x "$EXECUTABLE" >/dev/null; then
 	echo "smoke-linux-profile: DeepSeek Harness is running; close it and rerun $SCRIPT_DIR/smoke-linux-profile.sh" >&2
 	exit 1

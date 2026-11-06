@@ -47,6 +47,8 @@ El addon acepta solo parejas exactas Node/V8 (`runtime_profile.cc`): 43.0.0, 44.
 
 **Sin verificar.** Ninguna opción se probó en un Electron corregido. Tampoco se comprobó que la app arranque completa sin el addon, ni si otras rutas del paquete lo exigen.
 
+Parche C en la rama fix/electron-44.10-expose-internals, sin probar en sesión real; se retoma si alguien más usa el port
+
 ## PENDIENTE PARA LA PRÓXIMA VERSIÓN DEL PORT (2026-11-06)
 El arreglo «linux: make the AppImage executable before the installer runs it» (PR #15) ya está en main y no tiene release propia, por decisión de jkzero87: sale con la próxima versión del port. Hasta entonces, los AppImage publicados no cambian y `install-linux-local.sh` de una versión anterior exige el `chmod +x` que ya está en las notas de las cuatro releases.
 

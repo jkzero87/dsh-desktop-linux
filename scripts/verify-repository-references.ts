@@ -2,7 +2,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { lstatSync, readFileSync, readlinkSync } from 'node:fs'
-import { basename, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { canonicalReferenceText } from './verify-public-repository-links.ts'
 
@@ -14,8 +14,6 @@ const kitRepositoryUrl = new RegExp(`\\bgithub\\.com/${organization}/libreoffice
 // Decimal-only tokens collide with sizes, counts, and version components; see docs/AGENTS.md#repository-references.
 const commitCandidate = /(?<![a-z0-9])(?=[\da-f]{0,39}[a-f])[\da-f]{7,40}(?![a-z0-9])/gi
 const excludedPrefixes = ['vendor/', '.agents/notes/archived/']
-// Generated dependency lockfiles record decimal sizes and registry digests that can match a commit prefix.
-const dependencyLockfiles = new Set(['pnpm-lock.yaml', 'package-lock.json', 'uv.lock'])
 const gitOutputLimit = 64 * 1024 * 1024
 // One 41-byte line per object; 1.2 million objects produce about 49 MiB.
 const objectListingLimit = 1024 * 1024 * 1024
@@ -39,8 +37,7 @@ function isMaintained(file: string): boolean {
  * @param file - Repository-relative path used in diagnostics and exclusions.
  * @param source - File text or a symlink's stored target.
  * @param commits - Lowercase, unambiguous full or abbreviated commit identifiers.
- * @returns One finding per line and reference kind; digests, other Git object types, and hexadecimal values in
- * dependency lockfiles are accepted.
+ * @returns One finding per line and reference kind; digests and other Git object types are accepted.
  * Decimal-only tokens are ignored, including actual commit identifiers.
  */
 export function findRepositoryReferences(
@@ -49,13 +46,12 @@ export function findRepositoryReferences(
   commits: ReadonlySet<string>,
 ): RepositoryReference[] {
   if (!isMaintained(file)) return []
-  const checksCommits = !dependencyLockfiles.has(basename(file))
   const references: RepositoryReference[] = []
   for (const [index, line] of source.split('\n').entries()) {
     if (organizationUrl.test(canonicalReferenceText(line).replace(kitRepositoryUrl, ''))) {
       references.push({ file, line: index + 1, kind: 'organization-url' })
     }
-    if (checksCommits && [...line.matchAll(commitCandidate)].some(match => commits.has(match[0].toLowerCase()))) {
+    if ([...line.matchAll(commitCandidate)].some(match => commits.has(match[0].toLowerCase()))) {
       references.push({ file, line: index + 1, kind: 'commit-hash' })
     }
   }

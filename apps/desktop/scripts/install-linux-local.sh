@@ -114,6 +114,8 @@ if [[ -z "$SOURCE" ]]; then
 fi
 [[ -f "$SOURCE" ]] || { echo "no AppImage found; pass its path or run pnpm run package:linux:x64" >&2; exit 1; }
 SOURCE="$(realpath "$SOURCE")"
+# A browser or `gh release download` drops the executable bit, and --appimage-extract runs the file itself.
+[[ -x "$SOURCE" ]] || chmod +x "$SOURCE" || { echo "cannot make $SOURCE executable; run chmod +x on it and retry" >&2; exit 1; }
 
 # Extract beside the destination (same filesystem) so the swap below is a rename.
 # --appimage-extract runs without FUSE.

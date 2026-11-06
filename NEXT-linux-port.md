@@ -2,6 +2,9 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## PENDIENTE PARA LA PRÓXIMA VERSIÓN DEL PORT (2026-11-06)
+El arreglo «linux: make the AppImage executable before the installer runs it» (PR #15) ya está en main y no tiene release propia, por decisión de jkzero87: sale con la próxima versión del port. Hasta entonces, los AppImage publicados no cambian y `install-linux-local.sh` de una versión anterior exige el `chmod +x` que ya está en las notas de las cuatro releases.
+
 ## WORKFLOWS DESACTIVADOS 2026-11-06 (merge de dsh-v0.2.2-rc.1)
 En el fork solo debe correr «Release (linux desktop)» (release-linux.yml). Los workflows de upstream no pueden pasar aquí: el fork no tiene secrets (DEEPSEEK_API_KEY_EXTERNAL y otros) ni los runners de upstream (dsh-windows-2025-16core, blacksmith-*, self-hosted). Los .yml no se borran ni se editan, para no crear conflictos en los merges de upstream; se desactivan en GitHub.
 - Desactivados el 2026-11-06: `ci-python.yml` (CI Python) y `ci-windows.yml` (CI Windows). Se activaron solos al abrir el PR #13.

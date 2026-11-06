@@ -168,8 +168,10 @@ function checkHtml() {
 }
 
 try {
-  const builtin = requireRuntime('node-addon-require-builtin')
-  assert.equal(typeof builtin.requireBuiltin('internal/modules/esm/loader').getOrInitializeCascadedLoader, 'function')
+  // The runtime launches with --expose-internals, which does not depend on the addon's Electron support list.
+  assert.ok(process.execArgv.includes('--expose-internals'))
+  assert.equal(typeof requireRuntime('internal/modules/esm/loader').getOrInitializeCascadedLoader, 'function')
+  assert.equal(typeof requireRuntime('node-addon-require-builtin').requireBuiltin, 'function')
   console.error('runtime payload: pnpm')
   await checkPnpm(resourcesRuntime)
   console.error('runtime payload: koffi')

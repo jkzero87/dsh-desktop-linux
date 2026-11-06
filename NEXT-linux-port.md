@@ -2,6 +2,26 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## WORKFLOWS DESACTIVADOS 2026-11-06 (merge de dsh-v0.2.2-rc.1)
+En el fork solo debe correr «Release (linux desktop)» (release-linux.yml). Los workflows de upstream no pueden pasar aquí: el fork no tiene secrets (DEEPSEEK_API_KEY_EXTERNAL y otros) ni los runners de upstream (dsh-windows-2025-16core, blacksmith-*, self-hosted). Los .yml no se borran ni se editan, para no crear conflictos en los merges de upstream; se desactivan en GitHub.
+- Desactivados el 2026-11-06: `ci-python.yml` (CI Python) y `ci-windows.yml` (CI Windows). Se activaron solos al abrir el PR #13.
+- Pendientes de desactivar JUSTO DESPUÉS del merge a main: `pr-check-after-approve.yml`, `pr-check-on-base-branch.yml`, `pr-check-on-head-branch.yml`, `macos-intel-package.yml`, `cua-helper-package.yml`. Antes del merge GitHub no los conoce y `gh workflow disable` responde HTTP 404.
+- Ya estaban desactivados desde el 2026-10-19 los demás workflows de upstream.
+- Tras cada merge de upstream, listar los activos y desactivar los nuevos:
+
+```sh
+gh api repos/jkzero87/dsh-desktop-linux/actions/workflows --paginate --jq '.workflows[]|select(.state=="active")|.path'
+gh workflow disable <archivo.yml> -R jkzero87/dsh-desktop-linux
+```
+
+Reactivar uno (primero hay que dar de alta su secret o runner, o volverá a fallar):
+
+```sh
+gh workflow enable <archivo.yml> -R jkzero87/dsh-desktop-linux
+```
+
+"Dependabot Updates" y "Dependency Graph" son dinámicos de GitHub y siguen activos.
+
 ## MERGE 2026-10-31 — integ/rc5 = integ/mtaech-rc2 + dsh-v0.2.1-rc.5
 - Base = tag oficial dsh-v0.2.1-rc.5 («Merge pull request #7572 from deepseek-harness/worktree/release-dsh-0.2.1-rc.5»); mtaech no tiene tag rc.4/rc.5.
 - Método = git merge (como mtaech), no cherry-pick. Commit «Merge tag 'dsh-v0.2.1-rc.5' into integ/rc5», sin conflictos.

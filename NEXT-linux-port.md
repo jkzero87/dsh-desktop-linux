@@ -2,6 +2,53 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## CVE-2026-115570 DE ELECTRON: OPCIONES (investigación 2026-11-06, sin cambios)
+Decisión pendiente de jkzero87. Electron sigue en 44.7.0.
+
+**Qué versión lo corrige.** Según el aviso GHSA-jr5w-w6x2-84p9: 44.9.1 en la línea 44 (también 43.8.1, 42.11.16 y 45.0.0-beta.6). El aviso dice que no hay mitigación del lado de la app.
+
+**Si nos afecta.** Sí, pero no por la interfaz. El aviso solo excluye apps sin conexiones de red.
+- No expuesto: la interfaz local y el modelo por HTTP en loopback.
+- Expuesto: `web_fetch`, la búsqueda web y la instalación de plugins desde el registro, que salen por TLS.
+- Condición: un atacante que intercepte la red y tenga un certificado emitido por esas intermedias.
+- Consecuencia: una página o un resultado de búsqueda falsos llegan al modelo como si fueran auténticos.
+
+**Segunda exposición, independiente de Electron.** El Node del runtime es 24.21.0 (`scripts/primary-runtime/lock.json`), y varios proyectos indican que Node añade el bloqueo en 24.22.1 (nodejs/node#66871). No encontré las notas oficiales de esa versión: confirmarlas antes de actuar. Ese Node ejecuta pnpm y lo que lance el agente.
+
+**Estado del addon (2026-11-06).** `node-addon-require-builtin` sigue en 0.1.9 (publicada el 2026-10-08), sin commits posteriores en su repositorio y con issues desactivados. Upstream sigue en Electron 44.7.0 y addon 0.1.9, tanto en `master` (2026-11-04) como en `dsh-v0.2.2-rc.1`. La discusión deepseek-ai/deepseek-harness#10969 no tiene respuesta al comentario del 2026-10-31.
+
+El addon acepta solo parejas exactas Node/V8 (`runtime_profile.cc`): 43.0.0, 44.0.0, 44.7.0 y 45.0.0-alpha.6. Ni 44.7.2 (V8 15.2.124.37) coincide. No probé el rechazo en estas versiones; sale de la tabla.
+
+| Electron | Node | V8 | Corrige el CVE |
+|---|---|---|---|
+| 44.7.0 (actual) | 24.21.0 | 15.2.124.28 | No |
+| 44.9.1 | 24.22.0 | 15.2.124.43 | Sí |
+| 44.10.2 | 24.22.2 | 15.2.124.45 | Sí; también trae un Node posterior a 24.22.1 |
+| 45.2.3 | 24.22.2 | 15.6.75.27 | Sí; cambia de versión mayor y de V8 |
+
+**Qué hace el addon.** Da acceso a módulos internos de Node para resolver los plugins del perfil. No es propio del port: es de upstream.
+- `vendor/loader/src/internal.ts` y `packages/boot/hmr/src/package-manifest.ts` prueban primero `--expose-internals` y usan el addon de reserva.
+- `packages/boot/app-boot/src/profile-resolution/resolver.ts:735` lo exige, sin esa vía.
+- `apps/desktop/tests/fixtures/runtime-payload-smoke.mjs:171` también lo exige. Es el smoke que falló con 44.9.1.
+- El Host ya arranca con `--expose-internals` (`apps/desktop/src/host-process.ts:213`).
+- Prueba en el binario de 44.7.0 con ese flag: cargan los 5 módulos que pide `resolver.ts`. `internal/bootstrap/realm` no carga; lo pide `hmr`, que es de desarrollo, y `internal/test/binding` sí carga. Sin el flag no carga ninguno.
+
+**Opciones**
+
+| | Opción | Trabajo | Riesgo |
+|---|---|---|---|
+| A | Esperar a upstream | Ninguno | El CVE sigue abierto sin fecha; no hay señal de que vaya a moverse |
+| B | Fork del addon: añadir la fila 44.10.2 y compilar para linux-x64 | Medio: toolchain nativo, CI y distribuir el binario | El repo exige analizar el ABI de cada versión; un ABI erróneo puede tumbar el proceso. Hay que repetirlo con cada Electron. Que 44.0.0 y 44.7.0 compartan perfil es indicio, no prueba |
+| C | Parche en el port: `resolver.ts` y el smoke usan `--expose-internals` antes del addon | Bajo: pocas líneas, mismo patrón que `vendor/loader` | Sin probar en Electron nuevo. Depende de APIs internas de Node, como ya ocurre. Posibles conflictos con upstream. `hmr` podría degradarse |
+| D | Quitar del almacén las raíces emSign con `tls.setDefaultCACertificates` | Bajo | **Descartada.** Las intermedias también tienen firma cruzada de Sectigo según Infisical, así que no las bloquea; además deja sin validar sitios legítimos y no cubre Chromium |
+| E | Subir el Node del runtime a 24.22.1 o posterior | Bajo: `lock.json` con hashes | Solo cubre el Node del runtime, no el Host. Compatible con cualquiera de las otras. Hay que correr los smokes |
+
+**Recomendación.** C hacia Electron 44.10.2, más E, y proponer C a upstream para que el parche no sea permanente. B queda de reserva si C falla. Primer paso para validarla, sin mergear: una rama con C y Electron 44.10.2, y correr `prepare:dsh`, el smoke de perfil y una sesión real.
+
+**Sin verificar.** Ninguna opción se probó en un Electron corregido. Tampoco se comprobó que la app arranque completa sin el addon, ni si otras rutas del paquete lo exigen.
+
+Parche C en la rama fix/electron-44.10-expose-internals, sin probar en sesión real; se retoma si alguien más usa el port
+
 ## PENDIENTE PARA LA PRÓXIMA VERSIÓN DEL PORT (2026-11-06)
 El arreglo «linux: make the AppImage executable before the installer runs it» (PR #15) ya está en main y no tiene release propia, por decisión de jkzero87: sale con la próxima versión del port. Hasta entonces, los AppImage publicados no cambian y `install-linux-local.sh` de una versión anterior exige el `chmod +x` que ya está en las notas de las cuatro releases.
 

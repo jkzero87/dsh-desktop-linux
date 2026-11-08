@@ -11,6 +11,7 @@ import { z as zod } from 'zod'
 import type { ZodType } from 'zod'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { TodoItem } from './types.ts'
+import { installRestore, todoVisibilityDefinition } from './restore.ts'
 // Type-only: resolves the required ctx.sessionProjections service declaration.
 import type {} from '@deepseek-ai/dsh-session-projection'
 // The `todos` projection-key declaration lives in src/types.ts (its one home);
@@ -109,8 +110,8 @@ const todosProjectionSchema: ZodType<TodoItem[] | null> = zod.union([
 ])
 
 /**
- * Register the `todo_write` tool on `ctx.tools` and the `todos` unit on
- * `ctx.sessionProjections`.
+ * Register the `todo_write` tool on `ctx.tools`, the `todos` and host-only `todoVisibility` units on
+ * `ctx.sessionProjections`, and the `agent/pre-step` listener that restores a list compaction hid.
  * @param ctx - registrant context carrying the tool and session-projection registries.
  * @param config - deployment's explicit todo policy.
  * @returns when the plugin is ready.
@@ -121,7 +122,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   // turn/start (turn/end keeps the finished checklist visible); null before the
   // first write or after a later turn begins; every other event returns the
   // same state reference.
-  await ctx.sessionProjections.register<'todos', TodoItem[] | null>({
+  const todosUnit = await ctx.sessionProjections.register<'todos', TodoItem[] | null>({
     key: 'todos',
     stateSchema: todosProjectionSchema,
     init: () => null,
@@ -132,6 +133,11 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
     },
     wire: { viewSchema: todosProjectionSchema, view: state => state, summary: false },
     stateVersion: 2,
+  })
+  const visibilityUnit = await ctx.sessionProjections.register(todoVisibilityDefinition)
+  installRestore(ctx, {
+    todos: agent => todosUnit.stateOf(agent.session),
+    visibility: agent => visibilityUnit.stateOf(agent.session),
   })
   ctx.tools.register(defineTool({
     name: 'todo_write',

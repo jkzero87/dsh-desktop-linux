@@ -55,6 +55,10 @@ The agent sends the ENTIRE list on every update; the new list replaces the previ
 
 The task list belongs to the one agent session that created it — subagents and other agents each keep their own list, and there is no way to share a list between agents. A call from outside an agent session is rejected, so the agent learns the update failed instead of silently writing nowhere. If you need a list shared across agents, this package does not provide it.
 
+### After compaction
+
+When context compaction removes the latest list from the model's view while any todo is unfinished, the next step re-enters that list once, with a request to reconcile it through `todo_write`. A list whose todos are all `completed` is not restored, and the restore happens only within the turn that wrote the list.
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -81,6 +85,7 @@ The [todo_write tool Agent Note](../../../.agents/notes/archived/feature/2026-06
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: `Config` schema, tool registration, `todos` projection unit |
+| [`src/restore.ts`](src/restore.ts) | Host-only `todoVisibility` unit, the `todo-restore` message, and its `agent/pre-step` listener |
 | [`src/types.ts`](src/types.ts) | The one home of the `todos` projection-key declaration and its payload types |
 | [`src/client.ts`](src/client.ts) | Client-namespace re-export of the types outlet |
 
@@ -90,7 +95,7 @@ The plugin is a function/namespace plugin: it exports `name` / `inject` / `apply
 
 ### Session projection
 
-When the composition mounts `ctx.sessionProjections` ([`@deepseek-ai/dsh-session-projection`](../../session/session-projection/README.md)), this package registers the `todos` unit on an injected child: the projection is the standing plan — the latest whole `todo/write` list, `null` before the first write, cleared when the next turn starts while `turn/end` keeps the finished checklist visible. The key merges into `SessionProjectionMap` here; carriers serve the value on the history tail page and the `session/projection` push frame. Compositions without the registry are unaffected; see [src/index.ts](src/index.ts) for the unit registration.
+When the composition mounts `ctx.sessionProjections` ([`@deepseek-ai/dsh-session-projection`](../../session/session-projection/README.md)), this package registers the `todos` unit on an injected child: the projection is the standing plan — the latest whole `todo/write` list, `null` before the first write, cleared when the next turn starts while `turn/end` keeps the finished checklist visible. The key merges into `SessionProjectionMap` here; carriers serve the value on the history tail page and the `session/projection` push frame. Compositions without the registry are unaffected; see [src/index.ts](src/index.ts) for the unit registration. The host-only `todoVisibility` unit records the surface node that last showed the list to the model: the `tool/result` of the latest successful `todo_write`, or the latest `todo-restore` message. After `next()` returns, the `agent/pre-step` listener checks that node against the surface, so step-pressure compaction that runs earlier in the same step is already reflected.
 
 ### Call mechanics
 
@@ -145,6 +150,20 @@ Token growth scales with every full list the model submits, and those call argum
 
 Append-only; newly visible content follows the reusable request prefix and does not invalidate existing KV-cache entries.
 
+### Restored list after compaction
+
+#### What the model sees
+
+A user message with source `todo-restore`: `Context compaction removed your todo list from view. Its last state was:`, one `- [<status>] <content>` line per todo, then ``Compare it with the work already done, then call todo_write with the complete corrected list. Before your final answer, mark every finished todo `completed`.``
+
+#### Token effect
+
+One line per todo plus two fixed sentences, once per compaction that hides an unfinished list.
+
+#### KV Cache effect
+
+Appended after the compacted request prefix; compaction has already invalidated reuse past the replaced range.
+
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -155,6 +174,7 @@ These limits define when the tool is a poor fit. They are current package constr
 - **Single-owner scope only** — the list belongs to the one calling agent session; subagent, shared, and swarm scopes are a deliberate cut, and a non-agent caller is rejected.
 - **The item shape is deliberately minimal** — `content` plus three-state `status`; whole-list replacement needs no stable id, priority, or active-form fields.
 - **Whole-list replacement is the only operation** — no partial updates, no read-back tool, and no per-item edits; the model must resend the entire list each call.
+- **The restore cannot make the model update the list** — it re-enters the hidden list once per compaction; a model that still never calls `todo_write` leaves the UI showing the last list it wrote. Compaction during overflow recovery runs after `agent/pre-step`, so the restore enters at the following step.
 
 <a id="dev-note"></a>
 ### Dev Note

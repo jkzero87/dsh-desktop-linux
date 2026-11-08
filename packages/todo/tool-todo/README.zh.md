@@ -55,6 +55,10 @@ agent 每次更新都发送完整列表；新列表替换旧列表，因此没�
 
 任务列表属于创建它的那一个 agent 会话——subagent 与其他 agent 各自维护自己的列表，不存在跨 agent 共享列表的方式。来自 agent 会话之外的调用会被拒绝，因此 agent 会得知更新失败，而不是被静默丢弃。如果你需要多个 agent 共享同一份列表，本包不提供该能力。
 
+### 压缩之后
+
+当上下文压缩把最新列表移出模型视野、且仍有未完成的待办时，下一步会把该列表重新注入一次，并要求模型通过 `todo_write` 核对它。所有待办均为 `completed` 的列表不会被恢复，恢复也只发生在写入该列表的轮次内。
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -81,6 +85,7 @@ agent 每次更新都发送完整列表；新列表替换旧列表，因此没�
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：`Config` schema、工具注册、`todos` 投影单元 |
+| [`src/restore.ts`](src/restore.ts) | 仅宿主侧的 `todoVisibility` 单元、`todo-restore` 消息及其 `agent/pre-step` 监听器 |
 | [`src/types.ts`](src/types.ts) | `todos` 投影键声明及其载荷类型的唯一归属地 |
 | [`src/client.ts`](src/client.ts) | 客户端命名空间对类型出口的再导出 |
 
@@ -90,7 +95,7 @@ agent 每次更新都发送完整列表；新列表替换旧列表，因此没�
 
 ### 会话投影
 
-当组合挂载 `ctx.sessionProjections`（[`@deepseek-ai/dsh-session-projection`](../../session/session-projection/README.zh.md)）时，本包在注入的子插件中注册 `todos` 单元：投影即有效计划——最新的整份 `todo/write` 列表，首次写入前为 `null`，下一轮次开始时清空，而 `turn/end` 保留刚完成的清单。该键在此处合并进 `SessionProjectionMap`；载体通过历史尾页与 `session/projection` 推送帧提供该值。未挂载注册表的组合不受影响；单元注册见 [src/index.ts](src/index.ts)。
+当组合挂载 `ctx.sessionProjections`（[`@deepseek-ai/dsh-session-projection`](../../session/session-projection/README.zh.md)）时，本包在注入的子插件中注册 `todos` 单元：投影即有效计划——最新的整份 `todo/write` 列表，首次写入前为 `null`，下一轮次开始时清空，而 `turn/end` 保留刚完成的清单。该键在此处合并进 `SessionProjectionMap`；载体通过历史尾页与 `session/projection` 推送帧提供该值。未挂载注册表的组合不受影响；单元注册见 [src/index.ts](src/index.ts)。仅宿主侧的 `todoVisibility` 单元记录最后向模型展示列表的 surface 节点：最近一次成功 `todo_write` 的 `tool/result`，或最近一条 `todo-restore` 消息。`agent/pre-step` 监听器在 `next()` 返回后对照 surface 检查该节点，因此同一步中更早运行的步骤压力压缩已经生效。
 
 ### 调用机制
 
@@ -145,6 +150,20 @@ token 用量随模型每次提交的完整列表增长，这些调用参数会�
 
 仅追加；新可见内容位于可复用请求前缀之后，不会使既有 KV-cache 条目失效。
 
+### 压缩后恢复的列表
+
+#### 模型看到什么
+
+一条来源为 `todo-restore` 的用户消息：`Context compaction removed your todo list from view. Its last state was:`，每个待办一行 `- [<status>] <content>`，然后是 ``Compare it with the work already done, then call todo_write with the complete corrected list. Before your final answer, mark every finished todo `completed`.``
+
+#### Token 影响
+
+每个待办一行，外加两句固定文本；每次隐藏未完成列表的压缩注入一次。
+
+#### KV Cache 影响
+
+追加在压缩后的请求前缀之后；压缩本身已使被替换范围之后的复用失效。
+
 ## 已知限制与延期工作
 
 <a id="known-limitations-and-deferred-work"></a>
@@ -155,6 +174,7 @@ token 用量随模型每次提交的完整列表增长，这些调用参数会�
 - **仅单一所有者作用域**——列表属于唯一调用 agent 会话；subagent、共享与 swarm 作用域是有意设置的限制，非 agent 调用方会被拒绝。
 - **条目形状刻意保持最小**——`content` 加三态 `status`；整表替换不需要稳定 id、优先级或 active-form 字段。
 - **整表替换是唯一操作**——没有部分更新、没有回读工具、没有逐项编辑；模型每次调用都必须重新发送完整列表。
+- **恢复无法迫使模型更新列表**——每次压缩只重新注入一次被隐藏的列表；如果模型仍从不调用 `todo_write`，UI 会继续显示它最后写入的列表。溢出恢复期间的压缩在 `agent/pre-step` 之后运行，因此恢复会在下一步注入。
 
 <a id="dev-note"></a>
 ### 开发备注

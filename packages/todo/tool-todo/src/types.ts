@@ -8,6 +8,7 @@
  * @module @deepseek-ai/dsh-tool-todo/types
  */
 
+import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import type { SessionProjectionSummaryExcluded } from '@deepseek-ai/dsh-session-projection/types'
 
 /**
@@ -44,5 +45,16 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
      * exclusion mark so the pre-first-write value stays expressible.
      */
     todos: SessionProjectionSummaryExcluded<TodoItem[]> | null
+  }
+}
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    /**
+     * The todo list re-entered after its last model-visible node left the surface; readers
+     * preserve the content without this producer, whose projection uses the kind to track the node.
+     * @persistenceAttribution
+     */
+    'todo-restore': { kind: 'todo-restore' } & ContextFormed
   }
 }

@@ -2,6 +2,17 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## MERGE 2026-11-16 — integ/0.2.2-rc3 = main + dsh-v0.2.2-rc.3
+- Method = git merge of the official tag, commit «Merge tag 'dsh-v0.2.2-rc.3' into integ/0.2.2-rc3». Its message lists every conflict and its resolution; full report in ~/dsh-compare/rc3-port.md.
+- Host cookie fix: the cherry-picked `pruneHostCookies` is gone; rc.3 carries upstream's own version (`removeLegacyHostCookies`).
+- Office: upstream deleted `apps/desktop-host/src/office-engine.ts` and resolves the Kit engine in `packages/document/office-kit/src/locate.ts`. The Linux failure came back there ("Installed LibreOfficeKit package is incomplete": Electron's `lstatSync` returns null for a missing path inside app.asar). Fixed by «office-kit: treat Electron's null stat of a missing ASAR path as absent».
+- `docs/persistence-changes/2026-11-08-todo-restore-source` was rebased onto upstream's newest record with `persistence-changes --update`. Expect the same after any upstream release that adds a record for the same events.
+- The merge commit skipped only the pre-commit job «whitespace (staged)» (`LEFTHOOK_EXCLUDE`): upstream's `packages/experimental/deepseek-chat-import/src/client/mount.ts` ends with a blank line.
+- compatibility.json: "0.2.2-rc.3" added for dsh-free-search@0.4.39 and dsh-recall@0.1.0 (backup compatibility.json.bak-pre-rc3-20261116).
+- AppImage sha256 872d8403…, built from «office-kit: treat Electron's null stat of a missing ASAR path as absent», installed; backup of the previous app in ~/dsh-compare/backup_app_20261116/.
+- New upstream workflow: `desktop-rollout.yml` (manual trigger only). After the merge to main, list the active workflows and disable the new ones (commands below).
+- README-LINUX.md and this file are English from this branch on; the release notes on GitHub too (Spanish originals in ~/dsh-compare/release-notes-es-backup/).
+
 ## ELECTRON CVE-2026-115570: OPTIONS (research 2026-11-06, unchanged)
 Decision pending from jkzero87. Electron stays at 44.7.0.
 

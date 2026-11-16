@@ -102,6 +102,15 @@ it.each(['missing manifest', 'dangling symlink', 'absent'] as const)(
   },
 )
 
+it('treats the null that Electron reports for a missing ASAR path as an absent engine package', () => {
+  const fixture = engineTree()
+  // Electron's ASAR-aware lstatSync returns null where Node returns undefined.
+  vi.mocked(lstatSync).mockReturnValue(null as never)
+  const error = thrownBy(() => fixture.resolveEnginePackage(fixture.name))
+  expect(error).toMatchObject({ code: 'MODULE_NOT_FOUND' })
+  expect(error).toBe(fixture.resolve.mock.results[0]?.value)
+})
+
 it('keeps a Node resolution error other than MODULE_NOT_FOUND unchanged', () => {
   const fixture = engineTree()
   mkdirSync(fixture.directory, { recursive: true })

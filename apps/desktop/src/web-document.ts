@@ -49,31 +49,24 @@ export async function authenticateWebHost(url: string): Promise<string> {
   return end < 0 ? cookie : cookie.slice(0, end)
 }
 
-/** Name prefix of the Host browser-session cookie minted by `@deepseek-ai/dsh-client-connection`. */
-const HOST_COOKIE_PREFIX = 'dsh-auth-'
-
-/** The Electron cookie-store operations used to prune Host browser-session cookies. */
+/** Cookie store operations used to remove legacy Host authentication cookies. */
 export interface HostCookieStore {
-  get(filter: { url: string }): Promise<ReadonlyArray<{ readonly name: string }>>
+  get(filter: { url: string }): Promise<readonly { readonly name: string }[]>
   remove(url: string, name: string): Promise<void>
 }
 
 /**
- * Remove every Host browser-session cookie the store holds for the Host's loopback address.
- * Each Host listens on a fresh port and names its cookie after that authority, while Chromium
- * scopes cookies by host without the port and sends all of them on every request. Without
- * pruning, one cookie accumulates per launch until the Cookie header exceeds Node's 16 KiB
- * request-header limit and the Host answers 431. Call this before the shell's session fetches
- * the launch URL: the current Host's cookie is minted by that fetch, so none of the removed
- * cookies can authenticate a live Host.
+ * Remove every `dsh-auth-*` cookie that earlier releases left in a cookie store for the Host's hostname.
+ * Cookies ignore ports, so cookies from earlier random-port Hosts would otherwise travel with every
+ * request to that hostname until they expire.
  * @param cookies - Electron session cookie store.
- * @param url - Launch URL reported by the owned Host process.
- * @returns the number of cookies removed.
+ * @param url - Host URL; cookies for its hostname on every port are removed.
  */
-export async function pruneHostCookies(cookies: HostCookieStore, url: string): Promise<number> {
-  const stale = (await cookies.get({ url })).filter(cookie => cookie.name.startsWith(HOST_COOKIE_PREFIX))
-  await Promise.all(stale.map(cookie => cookies.remove(url, cookie.name)))
-  return stale.length
+export async function removeLegacyHostCookies(cookies: HostCookieStore, url: string): Promise<void> {
+  const origin = new URL(url).origin
+  for (const { name } of await cookies.get({ url: origin })) {
+    if (name.startsWith('dsh-auth-')) await cookies.remove(origin, name)
+  }
 }
 
 /**

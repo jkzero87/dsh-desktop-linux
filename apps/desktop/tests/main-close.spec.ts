@@ -15,7 +15,7 @@ type InvokeHandler = (event: InvokeEvent, ...args: unknown[]) => unknown
 const fileDrag = vi.hoisted(() => ({ dispose: vi.fn<() => Promise<void>>(), install: vi.fn() }))
 vi.mock('../src/file-drag.ts', () => ({ installDesktopFileDrag: () => { fileDrag.install(); return fileDrag.dispose } }))
 
-vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn(), pruneHostCookies: vi.fn(async () => 0) }))
+vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn(), removeLegacyHostCookies: async () => {} }))
 vi.mock('../src/operation-report-job.ts', () => ({ runOperationReportJob: vi.fn(async () => ({ appended: false, timedOut: false, cancelled: false })) }))
 // Report persistence has its own unit tests; here it resolves within microtasks so the fatal
 // dialog never outlives the test that triggered it.
@@ -62,8 +62,8 @@ const harness = await vi.hoisted(async () => {
   })
   const loginShell = vi.fn((base: NodeJS.ProcessEnv, _config: unknown, _options: { signal?: AbortSignal }) => readLoginShell(base))
   const updateCheck = vi.fn(async (_manual?: boolean): Promise<DesktopUpdateState> => updateState)
-  const updateDownload = vi.fn(async (_version: string): Promise<DesktopUpdateState> => updateState)
-  const updateInstall = vi.fn(async (_version: string): Promise<DesktopUpdateState> => updateState)
+  const updateDownload = vi.fn(async (_version: string, _revision?: number): Promise<DesktopUpdateState> => updateState)
+  const updateInstall = vi.fn(async (_version: string, _revision?: number): Promise<DesktopUpdateState> => updateState)
   const popup = vi.fn<(options: { window: FakeWindow; x?: number; y?: number; callback?: () => void }) => void>()
   const menuBuilder = vi.fn<(template: MenuItemConstructorOptions[]) => { popup: typeof popup }>(() => ({ popup }))
   const menu = Object.assign(menuBuilder, { buildFromTemplate: menuBuilder, setApplicationMenu: vi.fn() })
@@ -146,7 +146,7 @@ const harness = await vi.hoisted(async () => {
     readonly updateTasks = vi.fn(async (_action: 'inspect' | 'lock' | 'unlock') => false)
     readonly inspectQuit = vi.fn(async () => ({ activeTasks: false, scheduledTasks: false }))
     url = 'http://127.0.0.1:3080/?token=test'
-    fetch = vi.fn(async () => Response.json({ hasApiKey: true, writable: true, localePreference: null }))
+    fetch = vi.fn(async () => Response.json({ hasApiKey: true, writable: true, localePreference: null, themePreference: 'system' }))
     readonly ready = deferred()
     readonly exited = deferred()
     readonly stopping = deferred()
@@ -194,7 +194,12 @@ const harness = await vi.hoisted(async () => {
   let analyticsEnabled = true
   let analyticsEnabledListener: ((enabled: boolean) => void) | undefined
   const analytics = vi.fn(async (_event: unknown) => {})
-  const nativeTheme = { themeSource: 'system', shouldUseDarkColors: false }
+  const nativeTheme = new class extends EventEmitter {
+    themeSource = 'system'
+    systemDark = false
+    get shouldUseDarkColors() { return this.themeSource === 'system' ? this.systemDark : this.themeSource === 'dark' }
+    set shouldUseDarkColors(value: boolean) { this.systemDark = value }
+  }()
   const trays: FakeTray[] = []
   class FakeTray extends EventEmitter {
     readonly setToolTip = vi.fn()
@@ -208,7 +213,8 @@ const harness = await vi.hoisted(async () => {
     failWindow(error: Error) { windowFailure = error },
     windows, views, hosts, handlers, app, FakeWindow, FakeView, FakeHost, powerMonitor, nativeTheme, analytics,
     trays, FakeTray, backgroundNotice, shellDialog,
-    menu, popup, socketHeaders: vi.fn(), loginShell, readLoginShell, updateCheck, updateDownload, updateInstall,
+    menu, popup, socketHeaders: vi.fn(), connectWelcome: vi.fn(), removeLegacyHostCookies: vi.fn(async () => {}), hostCookies: {},
+    loginShell, readLoginShell, updateCheck, updateDownload, updateInstall,
     platformDispose,
     platformCloseAndWait,
 
@@ -232,6 +238,7 @@ const harness = await vi.hoisted(async () => {
     set publishUpdate(value: (state: DesktopUpdateState) => DesktopUpdateState) { publishUpdate = value },
     dialog: { showOpenDialog: vi.fn(), showErrorBox: vi.fn(), showMessageBox: vi.fn() },
     openExternal: vi.fn(async () => {}),
+    showItemInFolder: vi.fn(),
     protocolHandle: vi.fn<(scheme: string, handler: (request: Request) => Response | Promise<Response>) => void>(),
     applyRelease: vi.fn(() => { preparing.resolve(); return prepared.promise }),
     disableAllPlugins: vi.fn(async () => {
@@ -270,6 +277,7 @@ const harness = await vi.hoisted(async () => {
       loginShell.mockReset().mockImplementation(base => readLoginShell(base))
       updateDownload.mockReset().mockImplementation(async () => updateState)
       updateInstall.mockReset().mockImplementation(async () => updateState)
+      nativeTheme.removeAllListeners()
       nativeTheme.themeSource = 'system'; nativeTheme.shouldUseDarkColors = false
       preparing = deferred(); prepared = deferred(); hostStarted = deferred()
       navigated = deferred(); dialogShown = deferred(); quitCompleted = deferred()
@@ -297,9 +305,8 @@ vi.mock('electron', () => ({
   BrowserWindow: harness.FakeWindow,
   WebContentsView: harness.FakeView,
   dialog: harness.dialog,
-  shell: { openExternal: harness.openExternal },
+  shell: { openExternal: harness.openExternal, showItemInFolder: harness.showItemInFolder },
   nativeTheme: harness.nativeTheme,
-  net: { fetch: vi.fn() },
   ipcMain: {
     on: harness.ipcOn,
     handle: (channel: string, handler: InvokeHandler) => {
@@ -310,7 +317,7 @@ vi.mock('electron', () => ({
   },
   Menu: { setApplicationMenu: harness.menu.setApplicationMenu, buildFromTemplate: harness.menu },
   session: { defaultSession: {
-    on: vi.fn(),
+    on: vi.fn(), cookies: harness.hostCookies,
     setPermissionCheckHandler: vi.fn(), setPermissionRequestHandler: vi.fn(), webRequest: { onBeforeSendHeaders: harness.socketHeaders },
   } },
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: harness.protocolHandle },
@@ -360,9 +367,27 @@ vi.mock('../src/update-dialog.ts', () => ({ DesktopUpdateDialog: class {
   dispose() {}
 } }))
 vi.mock('../src/update-coordinator.ts', () => ({ DesktopUpdateCoordinator: class {
-  constructor(publish: (state: DesktopUpdateState) => DesktopUpdateState, beforeRestart: () => Promise<boolean>) {
+  selectedChannel: 'nightly' | 'stable' = 'nightly'
+  revision = 0
+  configurationFailure: 'startup' | 'cleanup' | undefined
+  constructor(publish: (state: DesktopUpdateState) => DesktopUpdateState, beforeRestart: () => Promise<boolean>,
+    _updater: unknown, _enabled: unknown, _version: unknown, _downloadResult: unknown, channel: 'nightly' | 'stable') {
+    this.selectedChannel = channel
     harness.prepareUpdate = beforeRestart
     harness.publishUpdate = publish
+  }
+  async switchChannel(channel: 'nightly' | 'stable', persist: () => Promise<void>) {
+    await persist()
+    this.selectedChannel = channel
+    this.configurationFailure = undefined
+    this.revision++
+    harness.updateState = { phase: 'idle' }
+    return 'applied' as const
+  }
+  suspendConfiguration(detail: string, reason: 'startup' | 'cleanup' = 'startup') {
+    this.configurationFailure = reason
+    harness.updateState = { phase: 'error', failedOperation: 'configuration', message: detail }
+    harness.publishUpdate(harness.updateState)
   }
   get state() { return harness.updateState }
   readonly check = harness.updateCheck
@@ -382,14 +407,17 @@ vi.mock('../src/platform-view.ts', async importOriginal => ({
   },
 }))
 vi.mock('../src/welcome-backend.ts', () => ({
-  connectDesktopWelcome: async () => ({
-    analyticsEnabled: async () => harness.analyticsEnabled,
-    report: harness.analytics,
-    readLocalePreference: async () => null,
-    read: async (): Promise<unknown> => (await harness.hosts.at(-1)!.fetch()).json() as Promise<unknown>,
-    save: async () => ({ ok: true }),
-    account: { watch: harness.watchAccount, state: async () => ({ status: 'signed-out', attempt: null }) },
-  }),
+  connectDesktopWelcome: (...args: unknown[]) => {
+    harness.connectWelcome(...args)
+    return {
+      analyticsEnabled: async () => harness.analyticsEnabled,
+      report: harness.analytics,
+      readLocalePreference: async () => null,
+      read: async (): Promise<unknown> => (await harness.hosts.at(-1)!.fetch()).json() as Promise<unknown>,
+      save: async () => ({ ok: true }),
+      account: { watch: harness.watchAccount, state: async () => ({ status: 'signed-out', attempt: null }) },
+    }
+  },
 }))
 
 function invoke(channel: string, origin = channel === DESKTOP_IPC.boot ? 'app' : 'shell', ...args: unknown[]): unknown {

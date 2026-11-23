@@ -2,6 +2,14 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## TRIAL 2026-11-23 — integ/0.2.3-alpha2 = integ/0.2.2-rc5 + dsh-v0.2.3-alpha.2 (local only, not pushed)
+- Newest upstream tag on 2026-11-23: dsh-v0.2.3-alpha.2 (npm `alpha`); npm `latest` is still 0.2.2-rc.5.
+- The merge commit lists all 23 conflicts and their resolutions. The only code adaptation: upstream's request-image shrink loop (resize policy, imageTargetBytes / maxImageBytes) moves into the port's raster worker (raster-operations.ts, policy in the worker request).
+- Electron: upstream moves to ^44.11.5 with node-addon-require-builtin 0.1.10, so the port's electron 44.7.0 hold is dropped. 44.11.5 is past 44.9.1, which fixes CVE-2026-115570.
+- Node: engines `^24.22.3 || >=26.13.1`. pnpm only warns on the build host's 24.21.0; the packaged runtime carries Node 24.22.3 (scripts/primary-runtime/lock.json).
+- Desktop profile: alpha.2 no longer has the `tool-working-directory` row (working_directory tool removed, docs/upgrade-guide/v0.2.2-rc.3/working-directory-tool-removed). The profile patch row that disables it no longer matches anything; a boot with it unchanged still loads all 9 bundles, so deleting it is cleanup only.
+- compatibility.json needs "0.2.3-alpha.2" for dsh-free-search@0.4.39 and dsh-recall@0.1.0.
+
 ## MERGE 2026-11-23 — integ/0.2.2-rc5 = integ/0.2.2-rc3 + dsh-v0.2.2-rc.5
 - Method = git merge of the official tag, commit «Merge tag 'dsh-v0.2.2-rc.5' into integ/0.2.2-rc5». No conflicts: rc.3..rc.5 is 13 upstream commits (llm-deepseek safety check, liveshare tunnel worker, route-based web search provider).
 - Upstream drops the fixed `web.searchProvider` from the base bundle; the desktop profile is unaffected because dsh-free-search sets `searchProvider: ddg` itself.

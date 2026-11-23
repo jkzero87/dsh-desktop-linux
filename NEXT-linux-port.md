@@ -2,6 +2,14 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## MERGE 2026-11-23 — integ/0.2.2-rc5 = integ/0.2.2-rc3 + dsh-v0.2.2-rc.5
+- Method = git merge of the official tag, commit «Merge tag 'dsh-v0.2.2-rc.5' into integ/0.2.2-rc5». No conflicts: rc.3..rc.5 is 13 upstream commits (llm-deepseek safety check, liveshare tunnel worker, route-based web search provider).
+- Upstream drops the fixed `web.searchProvider` from the base bundle; the desktop profile is unaffected because dsh-free-search sets `searchProvider: ddg` itself.
+- No lockfile change: Electron 44.7.0 and node-addon-require-builtin 0.1.9 as before.
+- compatibility.json: "0.2.2-rc.5" added for dsh-free-search@0.4.39 and dsh-recall@0.1.0 (backup compatibility.json.bak-pre-rc5-20261123).
+- AppImage sha256 8b699160…, built with Node 24.21.0, installed; backup of the previous app and of both data homes in ~/backups/dsh-20261123/.
+- Profile smoke: 9 bundles loaded, none skipped. A boot probe also found the biblioteca MCP tools, recall, the dsh-free-search tools, web_fetch focus in standard-light, dsh-compaction-select in standard-light and investigacion, and the cite-sources trace line.
+
 ## MERGE 2026-11-16 — integ/0.2.2-rc3 = main + dsh-v0.2.2-rc.3
 - Method = git merge of the official tag, commit «Merge tag 'dsh-v0.2.2-rc.3' into integ/0.2.2-rc3». Its message lists every conflict and its resolution; full report in ~/dsh-compare/rc3-port.md.
 - Host cookie fix: the cherry-picked `pruneHostCookies` is gone; rc.3 carries upstream's own version (`removeLegacyHostCookies`).

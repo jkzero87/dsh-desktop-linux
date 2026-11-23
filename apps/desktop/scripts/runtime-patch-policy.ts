@@ -29,8 +29,8 @@ export const DESKTOP_RUNTIME_DEPENDENCY_OVERRIDES: Readonly<Record<string, strin
   // Linux port security patches; the root pnpm-workspace.yaml overrides do not reach this temporary project.
   // fflate 0.8.2 has the Dependabot alert fixed in 0.8.3.
   fflate: '0.8.3',
-  // http-proxy and web-fetch-http pin undici 8.11.2 exactly (content-encoding DoS, fixed in 8.12.2); 6.x and 7.x untouched.
-  'undici@>=8.0.0 <9.0.0': '8.12.2',
-  // rc.5 pins zod 4.4.3 exactly (memory exhaustion on oversized constrained collections, fixed in 4.6.6).
+  // Same undici 8 release as the root pnpm-workspace.yaml override; 6.x and 7.x untouched.
+  'undici@>=8.0.0 <9.0.0': '8.12.4',
+  // Upstream locks zod 4.6.6 (memory exhaustion on oversized constrained collections, fixed in 4.6.6); the port keeps 4.6.7.
   zod: '4.6.7',
 }

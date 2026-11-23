@@ -13,6 +13,7 @@ import type {
   NormalizationPolicy,
   NormalizedImage,
   RasterRunner,
+  RequestImageResizePolicy,
 } from './raster-operations.ts'
 
 /** Grace a worker receives to finish queued frames before it is killed during disposal. */
@@ -112,9 +113,10 @@ export class RasterWorker implements RasterRunner {
     attachment: StoredImageAttachment,
     target: ImageRequestTarget,
     hasAlpha: boolean,
+    policy: RequestImageResizePolicy,
   ): Promise<EncodedRequestImage> {
     const { result, binary } = await this.request(
-      { op: 'createRequestImage', ref: attachment.ref, target, hasAlpha },
+      { op: 'createRequestImage', ref: attachment.ref, target, hasAlpha, policy },
       attachment.data,
     )
     if (result.op !== 'createRequestImage') throw new Error('attachment raster worker returned an unexpected result')

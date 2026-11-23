@@ -34,11 +34,11 @@ dist-exe/
 /dist/
 apps/desktop/.desktop-build/
 /upstream-mtaech-issue.md
-python/sdk-runtime/src/deepseek_harness_runtime/runtime/
 packages/client/ui-deepseek-model-label-1017/
-python/**/__pycache__/
+apps/desktop/.desktop-dev/
+python/sdk-runtime/src/deepseek_harness_runtime/runtime/
+__pycache__/
 python/**/.pytest_cache/
-packages/**/__pycache__/
 apps/web/dist/
 apps/cli/docs/
 .artifacts/

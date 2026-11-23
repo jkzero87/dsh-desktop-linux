@@ -162,12 +162,19 @@ export async function normalizeImage(
  * @param attachment - durable normalized attachment bytes and reference.
  * @param target - route-chosen request dimensions and byte target.
  * @param hasAlpha - decoded source alpha fact selecting the ladder codec.
- * @returns encoded request bytes at the first ladder quality within the byte target.
+ * @param policy - resolved shrink controls for the hard byte limit.
+ * @param signal - cancellation; the in-process runner checks it around every encoding attempt, the worker before and after its run.
+ * @returns encoded request bytes no larger than `target.maxImageBytes`.
  */
 export async function createRequestImage(
   attachment: Parameters<RasterRunner['createRequestImage']>[0],
   target: Parameters<RasterRunner['createRequestImage']>[1],
   hasAlpha: boolean,
+  policy: operations.RequestImageResizePolicy,
+  signal?: AbortSignal,
 ): Promise<operations.EncodedRequestImage> {
-  return await activeRunner().createRequestImage(attachment, target, hasAlpha)
+  signal?.throwIfAborted()
+  const encoded = await activeRunner().createRequestImage(attachment, target, hasAlpha, policy, signal)
+  signal?.throwIfAborted()
+  return encoded
 }

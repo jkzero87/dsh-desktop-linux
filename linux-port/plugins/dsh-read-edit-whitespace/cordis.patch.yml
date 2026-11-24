@@ -1,0 +1,9 @@
+# dsh-read-edit-whitespace — tab-separated read numbering and whitespace diagnosis for failed edits (tools/post-execute)
+- insert:
+    - id: read-edit-whitespace
+      name: dsh-read-edit-whitespace
+      config:
+        # Differing lines described in one failed-edit diagnosis.
+        maxReportedLines: 6
+        # Files larger than this are not read for a diagnosis.
+        maxDiagnosedBytes: 2000000

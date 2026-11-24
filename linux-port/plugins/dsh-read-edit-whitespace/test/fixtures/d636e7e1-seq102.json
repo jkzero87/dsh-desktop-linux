@@ -1,0 +1,9 @@
+{
+  "source": "session-d636e7e1-1286-4ccb-9c56-760fc5b6784e (2026-11-24): read call seq40 / result seq43 of /home/jkzero/jira-rag/sql/030_silver.sql, failed edit call seq102 / result seq103 (FS_EDIT_NOT_FOUND). The read window is cut to lines 27-34, the span old_string covered; jira-rag is a public repository.",
+  "fullReadFooter": "(End of file - total 146 lines)",
+  "readText": "<path>/home/jkzero/jira-rag/sql/030_silver.sql</path>\n<type>file</type>\n<content>\n27:     created_at_raw       timestamptz NOT NULL, -- fields.created exactly as JIRA returns it\n28:     created_at           timestamptz NOT NULL, -- created_at_raw, century restored when repaired\n29:     resolved_at          timestamptz,\n30:     updated_at           timestamptz NOT NULL,\n31:     flag_century_repaired boolean NOT NULL, -- created_at_raw had a two-digit year\n32:                                             -- (0010-0012 for 2010-2012); created_at adds 2000 years\n33:     flag_impossible_date boolean NOT NULL, -- on the repaired created_at: before 2010,\n34:                                             -- after resolved_at, or after now()\n\n(Showing lines 27-34 of 146. Use offset=35 to continue.)\n</content>",
+  "editArguments": {
+    "file_path": "/home/jkzero/jira-rag/sql/030_silver.sql",
+    "old_string": "    created_at_raw       timestamptz NOT NULL, -- fields.created exactly as JIRA returns it\n    created_at           timestamptz NOT NULL, -- created_at_raw, century restored when repaired\n    resolved_at          timestamptz,\n    updated_at           timestamptz NOT NULL,\n    flag_century_repaired boolean NOT NULL, -- created_at_raw had a two-digit year\n                                             -- (0010-0012 for 2010-2012); created_at adds 2000 years\n    flag_impossible_date boolean NOT NULL, -- on the repaired created_at: before 2010,\n                                             -- after resolved_at, or after now()"
+  }
+}

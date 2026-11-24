@@ -2,6 +2,15 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## PLUGIN 2026-11-24 — dsh-read-edit-whitespace (branch fix/read-edit-whitespace)
+- Where: `linux-port/plugins/dsh-read-edit-whitespace/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild: it is installed into the profile with its own `install_desktop.sh`, not with `install-linux-local.sh`.
+- What: a `tools/post-execute` listener. It rewrites `read` lines from `N: text` to `N\ttext`, and appends the closest match and the exact whitespace difference to an `edit` that failed with `FS_EDIT_NOT_FOUND`.
+- Why: the upstream separator space was copied as indentation. On 2026-11-24, session `d636e7e1` seq102 sent 45 spaces where the file has 44 and lost about 5 min; the same failure happened on 2026-11-23 (`09242aea` seq91). Details are in the plugin's README.
+- Upstream code it depends on: `packages/fs/tool-fs/src/read-render.ts` `formatReadOutput` (the `N: ` prefix and the envelope), `packages/fs/fs-local/src/fsio.ts` `applyLiteralEdit` (`FS_EDIT_NOT_FOUND`), and the `tools/post-execute` waterfall in `packages/core/tools/src/pipeline.ts`.
+- After each upstream merge: run the plugin's `npm test`, and check that `engines.dsh` covers the new runtime (`smoke-linux-profile.sh` reports a skipped bundle).
+- The root `.gitignore` ignores `lib/`; the plugin's `lib/*.js` are source and are tracked with `git add -f`.
+- Installed 2026-11-24 17:45 (backup `profiles/desktop.bak-pre-read-edit-whitespace-20261124-1745.tgz`); profile smoke 10 bundles, none skipped. Verified in app session `93c5232b`: read returned `3\t           count(*) AS delivered`, and an edit with 12 spaces returned `line 3, leading whitespace: old_string has 12 spaces, the file has 11 spaces.`
+
 ## MERGE 2026-11-23 — integ/0.2.2-rc5 = integ/0.2.2-rc3 + dsh-v0.2.2-rc.5
 - Method = git merge of the official tag, commit «Merge tag 'dsh-v0.2.2-rc.5' into integ/0.2.2-rc5». No conflicts: rc.3..rc.5 is 13 upstream commits (llm-deepseek safety check, liveshare tunnel worker, route-based web search provider).
 - Upstream drops the fixed `web.searchProvider` from the base bundle; the desktop profile is unaffected because dsh-free-search sets `searchProvider: ddg` itself.

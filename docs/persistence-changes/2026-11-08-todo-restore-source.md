@@ -27,20 +27,20 @@ id: 2026-11-08-todo-restore-source
 baseline: false
 changes:
   - root: "event:agent/inbox/spliced"
-    previous: "2026-10-13-liveshare-share-viewer-principal"
-    after: "b74b850497d6b46440bf6e016b34dfe9abd705fa8ad63deefbe36f748d85028b"
+    previous: "2026-10-27-retry-control-input"
+    after: "b27c5c6ae3de6276ae9236de569033a88de4b67143410bbad728ef9a3aa79a2b"
     decision: same-version
   - root: "event:developer/message"
-    previous: "2026-10-13-liveshare-share-viewer-principal"
-    after: "bbfb77dae43d889e93f4ae86417292c82863de6ae778b6d79592612e9414cf5d"
+    previous: "2026-10-27-retry-control-input"
+    after: "3f71d1d9c199756feb7deaccb3a291bb9f8da01ccf14ed0f7561f19afed666ed"
     decision: same-version
   - root: "event:session/title-llm-request"
-    previous: "2026-10-13-liveshare-share-viewer-principal"
-    after: "cf238f30027538d595ad4268f06d5bfce7e4699133963ecc92cfdac0b35c1f55"
+    previous: "2026-10-27-retry-control-input"
+    after: "bc821eca6108190f907d49219a7030183d7f5241fcb6760a098d39bf7addc8b2"
     decision: same-version
   - root: "event:user/message"
-    previous: "2026-10-13-liveshare-share-viewer-principal"
-    after: "cfad048409ae9717f91f267b5d2eb2267ed63c87e21344fe22a22d5a943141f6"
+    previous: "2026-10-27-retry-control-input"
+    after: "17692e76e03e6f84403585ede80ab784033d99c03ae5c4de50f99e2853964321"
     decision: same-version
 ```
 

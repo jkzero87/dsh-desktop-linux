@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { authenticateWebHost, forwardWebRequest, pruneHostCookies, serveWebDocument } from '../src/web-document.ts'
+import { authenticateWebHost, forwardWebRequest, removeLegacyHostCookies, serveWebDocument } from '../src/web-document.ts'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -87,12 +87,13 @@ it('refuses another page origin without forwarding its request', async () => {
   expect(fetch).not.toHaveBeenCalled()
 })
 
-it('removes every Host browser-session cookie left by earlier launches and keeps unrelated cookies', async () => {
-  const url = 'http://127.0.0.1:36487/?token=owned'
-  const stored = [{ name: 'dsh-auth-earlierPortA' }, { name: 'dsh-auth-earlierPortB' }, { name: 'unrelated' }]
-  const remove = vi.fn(() => Promise.resolve())
-  const get = vi.fn(() => Promise.resolve(stored))
-  expect(await pruneHostCookies({ get, remove }, url)).toBe(2)
-  expect(get).toHaveBeenCalledWith({ url })
-  expect(remove.mock.calls).toEqual([[url, 'dsh-auth-earlierPortA'], [url, 'dsh-auth-earlierPortB']])
+it('removes only legacy Host authentication cookies for the Host hostname', async () => {
+  const removed: [string, string][] = []
+  const cookies = {
+    get: vi.fn(async () => [{ name: 'dsh-auth-old' }, { name: 'other-app' }, { name: 'dsh-auth-older' }]),
+    remove: vi.fn(async (url: string, name: string) => { removed.push([url, name]) }),
+  }
+  await removeLegacyHostCookies(cookies, 'http://127.0.0.1:1234/?token=secret')
+  expect(cookies.get).toHaveBeenCalledExactlyOnceWith({ url: 'http://127.0.0.1:1234' })
+  expect(removed).toEqual([['http://127.0.0.1:1234', 'dsh-auth-old'], ['http://127.0.0.1:1234', 'dsh-auth-older']])
 })

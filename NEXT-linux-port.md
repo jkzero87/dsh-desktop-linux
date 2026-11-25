@@ -14,6 +14,22 @@
 - After each upstream merge: run the plugin's `npm test` and `npm run test:loop`. `test:loop` copies a vitest spec into `packages/core/agent-loop/tests` for the run and removes it afterwards. Also check that `engines.dsh` covers the new runtime.
 - The root `.gitignore` ignores `lib/`; the plugin's `lib/*.js` are tracked with `git add -f`.
 - Installed 2026-11-24 20:10 (backup `profiles/desktop.bak-pre-auto-continue-20261124-2010.tgz`). Profile smoke: 11 bundles, none skipped, and `auto-continue.log` has a `loaded` line. The app started 2026-11-25 19:07 UTC logged `loaded maxContinuations=3`.
+- Verified 2026-11-25 by reading the log of app session `5c175366` (cwd `~/biblioteca`, preset `standard-light`, first turn at 14:17 local, read-only):
+  - its 4 request headers carry the same 25 tools, including `mcp__biblioteca__library_search`/`library_open`, `recall` and `web_fetch`;
+  - its system message carries the `### MCP server: biblioteca` instructions;
+  - `cite-sources.log` has `active session=session-5c175366… sources=0`;
+  - `read` results at seq 153 and 156 number lines as `1\t…`, so read-edit-whitespace ran;
+  - the tool-result pruner logged 3 `compaction/prune` events.
+
+  Not shown by this session:
+  - toolFilter: it applies only to the `investigacion` preset, and this session uses `standard-light`;
+  - compaction-select: no summary compaction ran, and the engine logs only to `ctx.logger`, which the desktop host does not persist;
+  - skipped bundles: the running app writes no boot log. The profile files are unchanged since the 11-bundle, none-skipped smoke of 2026-11-24 20:10.
+- Context-full continuation (`test/loop.compaction.integration.spec.ts`, run by `npm run test:loop`). The test loads the installed dsh-compaction-select with the profile's values: window 65536, `outputReserveTokens` 2048, `safetyMarginTokens` 6144, `maxTokens` 8192, threshold 57344.
+  - Setup: a step whose prompt is 56840 tokens is cut with `max-tokens` at a total of 65230, mirroring `65177965`'s 57152 and 65533.
+  - The continuation's `agent/pre-step` measured 65230 and compacted 34787 tokens (`shadowed 5 surface nodes`) before the continuation request, which went out at 27678 tokens. One continuation was used.
+  - The pressure check runs on every `agent/pre-step`: `profiles/desktop/node_modules/dsh-compaction-select/lib/index.js:1074-1087`, with the threshold at `:119` and the compare at `:1178`. The steer is consumed by the next `preStep`, `packages/core/agent-loop/src/agent.ts:353`, which runs that waterfall at `:302-311`.
+  - Not covered: a summarizer whose output is rejected twice. compaction-select then logs `step compaction failed …; continuing the turn`, and the request goes out above the window. This was seen in the test with a malformed mock summary; it has not been seen with the real server.
 
 ## PLUGIN 2026-11-24 — dsh-read-edit-whitespace (branch fix/read-edit-whitespace)
 - Where: `linux-port/plugins/dsh-read-edit-whitespace/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild: it is installed into the profile with its own `install_desktop.sh`, not with `install-linux-local.sh`.

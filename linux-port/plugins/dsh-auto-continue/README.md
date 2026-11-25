@@ -22,7 +22,7 @@ On 2026-11-24, session `65177965` turn 2 ended with `max-tokens` at seq 631 (19:
 
 The limit reached was the server context, not the 61440-token per-response `maxTokens`. The request header carried `maxTokens: 61440` and `reasoningEffort: medium`; the step produced 8381 output tokens on a 57152-token prompt. llama-server (`-c 65536`) logged task 108649 with `stop processing: n_tokens = 65535, truncated = 1`.
 
-The continuation step therefore starts at a full context. The upstream between-step compaction (`agent/pre-step` pressure, `packages/compaction/compaction-basic/src/index.ts:157-175`, run by the profile's compaction-select row) is what makes room for it. In the same session it fired between steps at totals of 58414 and 58810. This has not yet been observed with an automatic continuation.
+The continuation step therefore starts at a full context. The upstream between-step compaction (`agent/pre-step` pressure, `packages/compaction/compaction-basic/src/index.ts:157-175`, run by the profile's compaction-select row) is what makes room for it. In the same session it fired between steps at totals of 58414 and 58810. `test/loop.compaction.integration.spec.ts` runs the installed dsh-compaction-select with the profile's values (threshold 57344). A step cut at 65230 tokens is compacted in the continuation's `agent/pre-step` before its request, which goes out at 27678 tokens. A summarizer whose output is rejected twice leaves the continuation above the window, and that path is not covered.
 
 ## Configuration
 
@@ -36,7 +36,8 @@ The continuation step therefore starts at a full context. The upstream between-s
 
 ```sh
 npm test                 # node --test: decisions on the real 65177965 seq 628-631 events (test/fixtures)
-npm run test:loop        # the plugin inside the real upstream agent loop with the upstream MockAdapter (vitest)
+npm run test:loop        # the plugin inside the real upstream agent loop (vitest), including the near-full context case
+                         # with the installed dsh-compaction-select; add -- --silent=false to print its trace
 ./install_desktop.sh     # refuses to run while the app has DSH_HOME open; backs up and restores the profile on failure
 ../../../apps/desktop/scripts/smoke-linux-profile.sh
 ```

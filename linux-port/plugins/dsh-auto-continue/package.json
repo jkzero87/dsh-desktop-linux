@@ -1,0 +1,25 @@
+{
+  "name": "dsh-auto-continue",
+  "version": "0.1.0",
+  "description": "Continue a turn cut off by the output token limit: a dsh agent/turn-stopping listener with a consecutive cap",
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib/index.js",
+    "lib/policy.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:loop": "test/run-loop-integration.sh"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=22.13",
+    "dsh": ">=0.2.2-rc.5 <0.3.0"
+  }
+}

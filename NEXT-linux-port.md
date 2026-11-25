@@ -2,6 +2,52 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## PLUGIN 2026-11-25 — dsh-auto-continue (branch feat/auto-continue)
+- Where: `linux-port/plugins/dsh-auto-continue/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild. It is installed into the profile with its own `install_desktop.sh`.
+- What: an `agent/turn-stopping` listener. When the stopping turn's latest `assistant/message` finished with `max-tokens`, it calls `agent.steer(...)` with one continuation message (source `auto-continue`, form `notice`), so the loop runs another step in the same turn. The cap is 3 consecutive continuations, and a `user/message` with source kind `user` resets the count. Sessions with `header.parentSession` (subagents and other delegated sessions) are skipped. Each decision is traced in `$DSH_HOME/logs/auto-continue.log`.
+- Why: between 2026-11-10 and 2026-11-24 two turns ended with `max-tokens` (`b5756fcb` seq105 on 11-12 and `65177965` seq631 on 11-24), losing 10.3 min until the user wrote again. Both were cut by the server context (`-c 65536`; task 108649 logged `n_tokens = 65535, truncated = 1`), not by the 61440 per-response `maxTokens`. The continuation step therefore relies on the between-step compaction (`agent/pre-step` pressure) to make room. Details are in the plugin's README.
+- Upstream code it depends on:
+  - `agent/turn-stopping`, documented in `packages/core/agent/src/runtime-types.ts:401-418` and dispatched in `packages/core/agent-loop/src/agent.ts:401-404`;
+  - `Agent.steer`, documented in `runtime-types.ts:255-261`;
+  - the `finish` chunk in the `assistant/message` stream;
+  - `header.parentSession`, set in `packages/subagent/subagent/src/child-agent.ts`.
+- After each upstream merge: run the plugin's `npm test` and `npm run test:loop`. `test:loop` copies a vitest spec into `packages/core/agent-loop/tests` for the run and removes it afterwards. Also check that `engines.dsh` covers the new runtime.
+- The root `.gitignore` ignores `lib/`; the plugin's `lib/*.js` are tracked with `git add -f`.
+- Installed 2026-11-24 20:10 (backup `profiles/desktop.bak-pre-auto-continue-20261124-2010.tgz`). Profile smoke: 11 bundles, none skipped, and `auto-continue.log` has a `loaded` line. The app started 2026-11-25 19:07 UTC logged `loaded maxContinuations=3`.
+- Verified 2026-11-25 by reading the log of app session `5c175366` (cwd `~/biblioteca`, preset `standard-light`, first turn at 14:17 local, read-only):
+  - its 4 request headers carry the same 25 tools, including `mcp__biblioteca__library_search`/`library_open`, `recall` and `web_fetch`;
+  - its system message carries the `### MCP server: biblioteca` instructions;
+  - `cite-sources.log` has `active session=session-5c175366… sources=0`;
+  - `read` results at seq 153 and 156 number lines as `1\t…`, so read-edit-whitespace ran;
+  - the tool-result pruner logged 3 `compaction/prune` events.
+
+  Not shown by this session:
+  - toolFilter: it applies only to the `investigacion` preset, and this session uses `standard-light`;
+  - compaction-select: no summary compaction ran, and the engine logs only to `ctx.logger`, which the desktop host does not persist;
+  - skipped bundles: the running app writes no boot log. The profile files are unchanged since the 11-bundle, none-skipped smoke of 2026-11-24 20:10.
+- Context-full continuation (`test/loop.compaction.integration.spec.ts`, run by `npm run test:loop`). The test loads the installed dsh-compaction-select with the profile's values: window 65536, `outputReserveTokens` 2048, `safetyMarginTokens` 6144, `maxTokens` 8192, threshold 57344.
+  - Setup: a step whose prompt is 56840 tokens is cut with `max-tokens` at a total of 65230, mirroring `65177965`'s 57152 and 65533.
+  - The continuation's `agent/pre-step` measured 65230 and compacted 34787 tokens (`shadowed 5 surface nodes`) before the continuation request, which went out at 27678 tokens. One continuation was used.
+  - The pressure check runs on every `agent/pre-step`: `profiles/desktop/node_modules/dsh-compaction-select/lib/index.js:1074-1087`, with the threshold at `:119` and the compare at `:1178`. The steer is consumed by the next `preStep`, `packages/core/agent-loop/src/agent.ts:353`, which runs that waterfall at `:302-311`.
+- Known gap (compaction-select, not auto-continue).
+  - When compaction-select's summarizer fails at the continuation's pre-step, the continuation request goes out above the window. compaction-select logs `step compaction failed …; continuing the turn`, and the test reproduced this with a malformed mock summary.
+  - Searched 2026-11-25: all 210 session logs (events 2026-10-11 to 2026-11-25) and `$DSH_HOME/logs`. Of 147 `compaction/start`, 5 ended with a `compaction/end` carrying `error`. The `step compaction failed` text cannot be found: it goes to `ctx.logger`, which the desktop host does not persist.
+
+    | Date | Session | seq | `compaction/end` error | Next request (prompt / total) | Above window | llama-server |
+    |---|---|---|---|---|---|---|
+    | 2026-10-15 18:12:42 | 54548ded | 95 | `summarization truncated at the token cap (incomplete checkpoint)` | 58247 / 58345 | no (65536) | `n_tokens = 58346, truncated = 0` |
+    | 2026-10-15 18:14:10 | 54548ded | 102 | `summarizer output rejected twice (unchanged, then tool-call); no checkpoint committed` | 16872 / 17396 | no | `n_tokens = 17397, truncated = 0` |
+    | 2026-10-26 16:23:52 | abf97961 | 417 | `summarizer output rejected twice (format, then tool-call); no checkpoint committed` | 59224 / 60504 | no (65536) | `n_tokens = 60505, truncated = 0` |
+    | 2026-11-06 22:32:34 | 907fd2cd | 1172 | `summarizer output rejected twice (format, then format); no checkpoint committed` | 44809 / 44810 | no (49152, `llamacpp-vision`) | no server log found |
+    | 2026-11-06 20:55:14 | 860f5253 | 828 | `Request was aborted` | none | — | no server log found |
+
+  - None of the 5 followed a `max-tokens` cut. Both `max-tokens` turns of the period (`b5756fcb` seq105, `65177965` seq631) were followed by a user `/compact` that succeeded.
+  - Worst case, not observed: a cut, then a failed summarizer, then a continuation above the window. From the code there are two outcomes, both bounded and both ending with the turn left for the user, as without the plugin:
+    1. llama-server rejects the request as over the context. compaction-select's `agent/request-error` overflow recovery (`dsh-compaction-select/lib/index.js:1096-1122`) tries once more. If that fails, the turn ends with `error` and auto-continue does not fire.
+    2. pi-ai clamps `max_tokens` to `window - estimate - 4096` (floor 1), so the step is cut again with `max-tokens`. auto-continue then spends its 3 continuations, reaches `cap`, and leaves the turn for the user.
+  - Fix: in compaction-select, in a separate PR.
+  - Also not visible in logs: a compaction skipped for lack of budget (`no balanced span…`, `nothing to compact`) writes no event. In the same period, 18 requests went out with a prompt ≥ 57344 (57446 to 61014), none above 65536.
+
 ## PLUGIN 2026-11-24 — dsh-read-edit-whitespace (branch fix/read-edit-whitespace)
 - Where: `linux-port/plugins/dsh-read-edit-whitespace/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild: it is installed into the profile with its own `install_desktop.sh`, not with `install-linux-local.sh`.
 - What: a `tools/post-execute` listener. It rewrites `read` lines from `N: text` to `N\ttext`, and appends the closest match and the exact whitespace difference to an `edit` that failed with `FS_EDIT_NOT_FOUND`.

@@ -2,6 +2,19 @@
 
 > WARNING (2026-10-15): Do NOT rebuild/reinstall the desktop app from linux-port until W3-W7 are scanned: the installed build («preset: apply toolFilter on every bind, after the loader settles») has toolFilter, linux-port doesn't, and Investigación depends on it. If a rebuild is needed before then, build from a local integration branch = linux-port + feat/preset-tool-filter, never pushed. RULE (2026-10-13): never run ANY dsh command against production profiles (~/.dsh), including --dump-config / --dump-default-config: every boot rewrites ~/.dsh/profiles/<name>/cordis.yml. Read production config files directly instead. Location: this file is ~/deepseek-harness/apps/desktop/.desktop-build/NEXT.md (NOT ~/deepseek-harness/.desktop-build/). Live desktop patch: ~/.local/share/deepseek-harness/profiles/desktop/cordis.patch.yml (the copy under development/home is stale).
 
+## PLUGIN 2026-11-25 — dsh-auto-continue (branch feat/auto-continue)
+- Where: `linux-port/plugins/dsh-auto-continue/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild. It is installed into the profile with its own `install_desktop.sh`.
+- What: an `agent/turn-stopping` listener. When the stopping turn's latest `assistant/message` finished with `max-tokens`, it calls `agent.steer(...)` with one continuation message (source `auto-continue`, form `notice`), so the loop runs another step in the same turn. The cap is 3 consecutive continuations, and a `user/message` with source kind `user` resets the count. Sessions with `header.parentSession` (subagents and other delegated sessions) are skipped. Each decision is traced in `$DSH_HOME/logs/auto-continue.log`.
+- Why: between 2026-11-10 and 2026-11-24 two turns ended with `max-tokens` (`b5756fcb` seq105 on 11-12 and `65177965` seq631 on 11-24), losing 10.3 min until the user wrote again. Both were cut by the server context (`-c 65536`; task 108649 logged `n_tokens = 65535, truncated = 1`), not by the 61440 per-response `maxTokens`. The continuation step therefore relies on the between-step compaction (`agent/pre-step` pressure) to make room. Details are in the plugin's README.
+- Upstream code it depends on:
+  - `agent/turn-stopping`, documented in `packages/core/agent/src/runtime-types.ts:401-418` and dispatched in `packages/core/agent-loop/src/agent.ts:401-404`;
+  - `Agent.steer`, documented in `runtime-types.ts:255-261`;
+  - the `finish` chunk in the `assistant/message` stream;
+  - `header.parentSession`, set in `packages/subagent/subagent/src/child-agent.ts`.
+- After each upstream merge: run the plugin's `npm test` and `npm run test:loop`. `test:loop` copies a vitest spec into `packages/core/agent-loop/tests` for the run and removes it afterwards. Also check that `engines.dsh` covers the new runtime.
+- The root `.gitignore` ignores `lib/`; the plugin's `lib/*.js` are tracked with `git add -f`.
+- Installed 2026-11-24 20:10 (backup `profiles/desktop.bak-pre-auto-continue-20261124-2010.tgz`). Profile smoke: 11 bundles, none skipped, and `auto-continue.log` has a `loaded` line. The app started 2026-11-25 19:07 UTC logged `loaded maxContinuations=3`.
+
 ## PLUGIN 2026-11-24 — dsh-read-edit-whitespace (branch fix/read-edit-whitespace)
 - Where: `linux-port/plugins/dsh-read-edit-whitespace/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild: it is installed into the profile with its own `install_desktop.sh`, not with `install-linux-local.sh`.
 - What: a `tools/post-execute` listener. It rewrites `read` lines from `N: text` to `N\ttext`, and appends the closest match and the exact whitespace difference to an `edit` that failed with `FS_EDIT_NOT_FOUND`.

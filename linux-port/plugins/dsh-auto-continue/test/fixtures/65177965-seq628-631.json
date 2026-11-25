@@ -1,0 +1,205 @@
+{
+ "source": "session-65177965-80b1-4401-897b-7032ef98ba4e (2026-11-24, ~/jira-rag), turn 2 seq 628-631: step 6 reasoned 26081 characters and the turn ended with reason max-tokens at 19:44:41. Reasoning text is cut and stream delta arrays are dropped (the repository is public); every field the plugin reads (types, seq, turn, step, usage, finish chunk, turn/end reason) is verbatim.",
+ "events": [
+  {
+   "type": "step/start",
+   "seq": 628,
+   "time": 1795567236663,
+   "data": {
+    "turn": 2,
+    "step": 6
+   }
+  },
+  {
+   "type": "assistant/message",
+   "seq": 629,
+   "time": 1795567480702,
+   "data": {
+    "turn": 2,
+    "step": 6,
+    "message": {
+     "role": "assistant",
+     "content": [
+      {
+       "type": "reasoning",
+       "text": "Now I have the full picture. Design of the changes:\n\n**A. V-rule validation (2023 slice):**\n- What we need: the pre-2023… [fixture: reasoning cut from 26081 characters]"
+      },
+      {
+       "type": "text",
+       "text": "Estructura clara. Aplicando los cambios: (1) conservar los modelos CV para V-rule en validación; (2) tabla de validación de 4 variantes + selección; (3) tabla top-15 por variante sin \"best por fila\".\n\n"
+      }
+     ],
+     "source": {
+      "kind": "model",
+      "provider": "llamacpp-local",
+      "model": "/home/jkzero/models/Qwen3.8-27B-GSQ/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+      "replayState": {
+       "response": {
+        "kind": "pi-ai",
+        "version": 2,
+        "api": "openai-completions",
+        "provider": "llamacpp-local",
+        "model": "/home/jkzero/models/Qwen3.8-27B-GSQ/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+        "responseId": "chatcmpl-tSjRmoR4iL18NzLmEIz47dnOsyFPF1bL",
+        "stopReason": "length"
+       },
+       "blocks": [
+        {
+         "type": "reasoning",
+         "thinkingSignature": "reasoning_content"
+        },
+        {
+         "type": "text"
+        }
+       ]
+      }
+     },
+     "id": "47ed3105-c2e9-4d3b-94f6-228d60fb8718"
+    },
+    "usage": {
+     "inputTokens": 1853,
+     "outputTokens": 8381,
+     "totalTokens": 65533,
+     "cacheReadTokens": 55299
+    },
+    "stream": [
+     {
+      "type": "chunk",
+      "time": 1795567240968,
+      "chunk": {
+       "type": "block-start",
+       "index": 0,
+       "blockType": "reasoning"
+      }
+     },
+     {
+      "type": "reasoning-chunks",
+      "time0": 1795567240968,
+      "index": 0
+     },
+     {
+      "type": "chunk",
+      "time": 1795567471516,
+      "chunk": {
+       "type": "block-start",
+       "index": 1,
+       "blockType": "text"
+      }
+     },
+     {
+      "type": "text-chunks",
+      "time0": 1795567471517,
+      "index": 1
+     },
+     {
+      "type": "chunk",
+      "time": 1795567473514,
+      "chunk": {
+       "type": "block-start",
+       "index": 2,
+       "blockType": "tool-call"
+      }
+     },
+     {
+      "type": "tool-call-chunks",
+      "time0": 1795567473514,
+      "index": 2,
+      "id": "qFfcK8iGcp9Csq2iUWwG2fjzzcHPb4rA",
+      "name": "edit"
+     },
+     {
+      "type": "chunk",
+      "time": 1795567480696,
+      "chunk": {
+       "type": "block-end",
+       "index": 0,
+       "block": {
+        "type": "reasoning",
+        "text": "Now I have the full picture. Design of the changes:\n\n**A. V-rule validation (2023 slice):**\n- What we need: the pre-2023… [fixture: reasoning cut from 26081 characters]"
+       }
+      }
+     },
+     {
+      "type": "chunk",
+      "time": 1795567480697,
+      "chunk": {
+       "type": "block-end",
+       "index": 1,
+       "block": {
+        "type": "text",
+        "text": "Estructura clara. Aplicando los cambios: (1) conservar los modelos CV para V-rule en validación; (2) tabla de validación de 4 variantes + selección; (3) tabla top-15 por variante sin \"best por fila\".\n\n"
+       }
+      }
+     },
+     {
+      "type": "chunk",
+      "time": 1795567480697,
+      "chunk": {
+       "type": "usage",
+       "usage": {
+        "inputTokens": 1853,
+        "outputTokens": 8381,
+        "totalTokens": 65533,
+        "cacheReadTokens": 55299
+       }
+      }
+     },
+     {
+      "type": "chunk",
+      "time": 1795567480697,
+      "chunk": {
+       "type": "finish",
+       "reason": {
+        "kind": "max-tokens"
+       },
+       "replayState": {
+        "response": {
+         "kind": "pi-ai",
+         "version": 2,
+         "api": "openai-completions",
+         "provider": "llamacpp-local",
+         "model": "/home/jkzero/models/Qwen3.8-27B-GSQ/Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf",
+         "responseId": "chatcmpl-tSjRmoR4iL18NzLmEIz47dnOsyFPF1bL",
+         "stopReason": "length"
+        },
+        "blocks": [
+         {
+          "type": "reasoning",
+          "thinkingSignature": "reasoning_content"
+         },
+         {
+          "type": "text"
+         },
+         {
+          "type": "tool-call"
+         }
+        ]
+       }
+      }
+     }
+    ]
+   },
+   "surfaceOp": "append"
+  },
+  {
+   "type": "step/end",
+   "seq": 630,
+   "time": 1795567480706,
+   "data": {
+    "turn": 2,
+    "step": 6
+   }
+  },
+  {
+   "type": "turn/end",
+   "seq": 631,
+   "time": 1795567481026,
+   "data": {
+    "turn": 2,
+    "reason": {
+     "kind": "max-tokens"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+# dsh-auto-continue — steer one continuation when a turn stops at the output token limit (agent/turn-stopping)
+- insert:
+    - id: auto-continue
+      name: dsh-auto-continue
+      config:
+        # Consecutive automatic continuations before the turn waits for the user; a user message resets the count.
+        maxContinuations: 3
+        # Relative to the DeepSeek Harness home; the desktop host writes ctx.logger nowhere persistent.
+        traceFile: logs/auto-continue.log

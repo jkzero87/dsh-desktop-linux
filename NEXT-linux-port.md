@@ -29,7 +29,24 @@
   - Setup: a step whose prompt is 56840 tokens is cut with `max-tokens` at a total of 65230, mirroring `65177965`'s 57152 and 65533.
   - The continuation's `agent/pre-step` measured 65230 and compacted 34787 tokens (`shadowed 5 surface nodes`) before the continuation request, which went out at 27678 tokens. One continuation was used.
   - The pressure check runs on every `agent/pre-step`: `profiles/desktop/node_modules/dsh-compaction-select/lib/index.js:1074-1087`, with the threshold at `:119` and the compare at `:1178`. The steer is consumed by the next `preStep`, `packages/core/agent-loop/src/agent.ts:353`, which runs that waterfall at `:302-311`.
-  - Not covered: a summarizer whose output is rejected twice. compaction-select then logs `step compaction failed …; continuing the turn`, and the request goes out above the window. This was seen in the test with a malformed mock summary; it has not been seen with the real server.
+- Known gap (compaction-select, not auto-continue).
+  - When compaction-select's summarizer fails at the continuation's pre-step, the continuation request goes out above the window. compaction-select logs `step compaction failed …; continuing the turn`, and the test reproduced this with a malformed mock summary.
+  - Searched 2026-11-25: all 210 session logs (events 2026-10-11 to 2026-11-25) and `$DSH_HOME/logs`. Of 147 `compaction/start`, 5 ended with a `compaction/end` carrying `error`. The `step compaction failed` text cannot be found: it goes to `ctx.logger`, which the desktop host does not persist.
+
+    | Date | Session | seq | `compaction/end` error | Next request (prompt / total) | Above window | llama-server |
+    |---|---|---|---|---|---|---|
+    | 2026-10-15 18:12:42 | 54548ded | 95 | `summarization truncated at the token cap (incomplete checkpoint)` | 58247 / 58345 | no (65536) | `n_tokens = 58346, truncated = 0` |
+    | 2026-10-15 18:14:10 | 54548ded | 102 | `summarizer output rejected twice (unchanged, then tool-call); no checkpoint committed` | 16872 / 17396 | no | `n_tokens = 17397, truncated = 0` |
+    | 2026-10-26 16:23:52 | abf97961 | 417 | `summarizer output rejected twice (format, then tool-call); no checkpoint committed` | 59224 / 60504 | no (65536) | `n_tokens = 60505, truncated = 0` |
+    | 2026-11-06 22:32:34 | 907fd2cd | 1172 | `summarizer output rejected twice (format, then format); no checkpoint committed` | 44809 / 44810 | no (49152, `llamacpp-vision`) | no server log found |
+    | 2026-11-06 20:55:14 | 860f5253 | 828 | `Request was aborted` | none | — | no server log found |
+
+  - None of the 5 followed a `max-tokens` cut. Both `max-tokens` turns of the period (`b5756fcb` seq105, `65177965` seq631) were followed by a user `/compact` that succeeded.
+  - Worst case, not observed: a cut, then a failed summarizer, then a continuation above the window. From the code there are two outcomes, both bounded and both ending with the turn left for the user, as without the plugin:
+    1. llama-server rejects the request as over the context. compaction-select's `agent/request-error` overflow recovery (`dsh-compaction-select/lib/index.js:1096-1122`) tries once more. If that fails, the turn ends with `error` and auto-continue does not fire.
+    2. pi-ai clamps `max_tokens` to `window - estimate - 4096` (floor 1), so the step is cut again with `max-tokens`. auto-continue then spends its 3 continuations, reaches `cap`, and leaves the turn for the user.
+  - Fix: in compaction-select, in a separate PR.
+  - Also not visible in logs: a compaction skipped for lack of budget (`no balanced span…`, `nothing to compact`) writes no event. In the same period, 18 requests went out with a prompt ≥ 57344 (57446 to 61014), none above 65536.
 
 ## PLUGIN 2026-11-24 — dsh-read-edit-whitespace (branch fix/read-edit-whitespace)
 - Where: `linux-port/plugins/dsh-read-edit-whitespace/`, a Desktop profile plugin outside the pnpm workspace. It changes no upstream file and does not need an AppImage rebuild: it is installed into the profile with its own `install_desktop.sh`, not with `install-linux-local.sh`.
